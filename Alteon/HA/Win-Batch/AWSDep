@@ -1,0 +1,88 @@
+
+:: Set Application Name
+set _Name=AppName
+set _VPCPref=10.0.0.0/16
+set _MgmtSub=10.0.1.0/24
+set _DataSub=10.0.2.0/24
+
+:: Get ImageID
+FOR /F "tokens=*" %%g IN ('aws configure get region') do (SET _Reg=%%g)
+FOR /F "tokens=*" %%g IN ('aws ec2 describe-images --owners "aws-marketplace" --filters "Name=product-code,Values=bk8zsl62zq94gk739kspd36nr" "Name=ena-support,Values=true" "Name=is-public,Values=true" --region %_Reg% --query "Images[].ImageId" --output text') do (SET _AmiId=%%g)
+
+:: Create Key Pair
+FOR /F "tokens=*" %%g IN ('aws ec2 create-key-pair --key-name %_Name%Key --query "KeyMaterial" --output text') do (ECHO %%g>>key.pem)
+
+:: Create a New VPC
+FOR /F "tokens=*" %%g IN ('aws ec2 create-vpc --cidr-block %_VPCPref% --query "Vpc.VpcId" --output text') do (SET _VPC=%%g)
+call aws ec2 create-tags --resource %_VPC% --tags Key=Name,Value=%_Name%VPC >> NULL
+
+:: Create a new Internet GW and attach it to the VPC
+FOR /F "tokens=*" %%g IN ('aws ec2 create-internet-gateway --query InternetGateway.InternetGatewayId --output text') do (SET _IGW=%%g)
+call aws ec2 create-tags --resource %_IGW% --tags Key=Name,Value=%_Name%IGW >> NULL
+call aws ec2 attach-internet-gateway --internet-gateway-id %_IGW% --vpc-id %_VPC% >> NULL
+
+:: Create 2 new Subnet
+FOR /F "tokens=*" %%g IN ('aws ec2 create-subnet --vpc-id %_VPC% --cidr-block %_MgmtSub% --query Subnet.SubnetId --output text') do (SET _MgmtSubID=%%g)
+call aws ec2 create-tags --resource %_MgmtSubID% --tags Key=Name,Value=%_Name%MGMTSub >> NULL
+FOR /F "tokens=*" %%g IN ('aws ec2 create-subnet --vpc-id %_VPC% --cidr-block %_DataSub% --query Subnet.SubnetId --output text') do (SET _DataSubID=%%g)
+call aws ec2 create-tags --resource %_DataSubID% --tags Key=Name,Value=%_Name%DataSub >> NULL
+
+:: Create a new Route table with a default route pointing to the Internet GW and assign it to the new subnets
+FOR /F "tokens=*" %%g IN ('aws ec2 create-route-table --vpc-id %_VPC% --query RouteTable.RouteTableId  --output text') do (SET _RtId=%%g)
+call aws ec2 create-tags --resource %_RtId% --tags Key=Name,Value=%_Name%Rt >> NULL
+call aws ec2 associate-route-table --route-table-id %_RtId% --subnet-id %_MgmtSubID% >> NULL
+call aws ec2 associate-route-table --route-table-id %_RtId% --subnet-id %_DataSubID% >> NULL
+call aws ec2 create-route --route-table-id %_RtId% --destination-cidr-block 0.0.0.0/0 --gateway-id %_IGW% >> NULL
+
+:: Create a security group with default rules
+FOR /F "tokens=*" %%g IN ('aws ec2 create-security-group --group-name %_Name%SecGr --description "Alteon Security group for %_Name%" --vpc-id %_VPC% --query GroupId --output text') do (SET _SecGr=%%g)
+call aws ec2 create-tags --resource %_SecGr% --tags Key=Name,Value=%_Name%SecGr >> NULL
+call aws ec2 authorize-security-group-ingress --group-id %_SecGr% --ip-permissions IpProtocol=tcp,FromPort=3121,ToPort=3121,IpRanges=[{CidrIp=%_VPCPref%}] IpProtocol=icmp,FromPort=-1,ToPort=-1,IpRanges=[{CidrIp=%_VPCPref%}] IpProtocol=udp,FromPort=2090,ToPort=2090,IpRanges=[{CidrIp=%_VPCPref%}] IpProtocol=tcp,FromPort=443,ToPort=443,IpRanges=[{CidrIp=0.0.0.0/0}] IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=0.0.0.0/0}] >> NULL
+
+:: Create Data Nic
+FOR /F "tokens=*" %%g IN ('aws ec2 create-network-interface --subnet-id %_DataSubID% --description %_Name%Inst-Data-Nic --groups %_SecGr% --query NetworkInterface.NetworkInterfaceId  --output text') do (SET _DNic1=%%g)
+call aws ec2 create-tags --resource %_DNic1% --tags Key=Name,Value=%_Name%Inst1DataNic >> NULL
+FOR /F "tokens=*" %%g IN ('aws ec2 describe-network-interfaces --filters "Name=tag-value,Values=%_Name%Inst1DataNic" --query "NetworkInterfaces[].PrivateIpAddresses[].PrivateIpAddress"  --output text') do (SET _Data1PIP1=%%g)
+call aws ec2 assign-private-ip-addresses --network-interface-id %_DNic1% --secondary-private-ip-address-count 1
+FOR /F "tokens=*" %%g IN ('aws ec2 describe-network-interfaces --filters "Name=tag-value,Values=%_Name%Inst1DataNic" --query "NetworkInterfaces[].PrivateIpAddresses[].PrivateIpAddress"  --output text') do ( FOR %%a IN (%%g) do (IF %%a NEQ %_Data1PIP1% SET _Data1PIP2=%%a ) )
+FOR /F "tokens=*" %%g IN ('aws ec2 create-network-interface --subnet-id %_DataSubID% --description %_Name%Inst-Data-Nic --groups %_SecGr% --query NetworkInterface.NetworkInterfaceId  --output text') do (SET _DNic2=%%g)
+call aws ec2 create-tags --resource %_DNic2% --tags Key=Name,Value=%_Name%Inst2DataNic >> NULL
+FOR /F "tokens=*" %%g IN ('aws ec2 describe-network-interfaces --filters "Name=tag-value,Values=%_Name%Inst2DataNic" --query "NetworkInterfaces[].PrivateIpAddresses[].PrivateIpAddress"  --output text') do (SET _Data2PIP1=%%g)
+call aws ec2 assign-private-ip-addresses --network-interface-id %_DNic2% --secondary-private-ip-address-count 1
+FOR /F "tokens=*" %%g IN ('aws ec2 describe-network-interfaces --filters "Name=tag-value,Values=%_Name%Inst2DataNic" --query "NetworkInterfaces[].PrivateIpAddresses[].PrivateIpAddress"  --output text') do ( FOR %%a IN (%%g) do (IF %%a NEQ %_Data2PIP1% SET _Data2PIP2=%%a ) )
+
+:: Deploy the instance, add name TAG and attach a NIC
+FOR /F "tokens=*" %%g IN ('aws ec2 run-instances --image-id %_AmiId% --count 1 --instance-type c4.large --key-name %_Name%Key --security-group-ids %_SecGr% --subnet-id %_MgmtSubID% --query Instances[].InstanceId  --output text') do (SET _Inst1Id=%%g)
+FOR /F "tokens=*" %%g IN ('aws ec2 run-instances --image-id %_AmiId% --count 1 --instance-type c4.large --key-name %_Name%Key --security-group-ids %_SecGr% --subnet-id %_MgmtSubID% --query Instances[].InstanceId  --output text') do (SET _Inst2Id=%%g)
+
+:: Allocate New Elastic IPs
+FOR /F "tokens=*" %%g IN ('aws ec2 allocate-address --domain vpc --query AllocationId  --output text') do (SET _Mgmt1EIP=%%g)
+FOR /F "tokens=*" %%g IN ('aws ec2 allocate-address --domain vpc --query AllocationId  --output text') do (SET _Mgmt2EIP=%%g)
+FOR /F "tokens=*" %%g IN ('aws ec2 allocate-address --domain vpc --query AllocationId  --output text') do (SET _DataEIP=%%g)
+
+FOR /F "tokens=*" %%g IN ('aws ec2 describe-instances --instance-ids %_Inst1Id% --query Reservations[].Instances[].NetworkInterfaces[].NetworkInterfaceId --output text') do (SET _MNic1=%%g)
+call aws ec2 create-tags --resource %_MNic1% --tags Key=Name,Value=%_Name%Inst1MgmtNic >> NULL
+FOR /F "tokens=*" %%g IN ('aws ec2 describe-instances --instance-ids %_Inst2Id% --query Reservations[].Instances[].NetworkInterfaces[].NetworkInterfaceId --output text') do (SET _MNic2=%%g)
+call aws ec2 create-tags --resource %_MNic2% --tags Key=Name,Value=%_Name%Inst2MgmtNic >> NULL
+
+FOR /F "tokens=*" %%g IN ('aws ec2 describe-instances --instance-ids %_Inst1Id% --query Reservations[].Instances[].NetworkInterfaces[].PrivateIpAddress --output text') do (SET _MgmtPIP1=%%g)
+call aws ec2 create-tags --resource %_Inst1Id% --tags Key=Name,Value=%_Name%Inst1 >> NULL
+call aws ec2 attach-network-interface --instance-id %_Inst1Id% --network-interface-id %_DNic1% --device-index 1 >> NULL
+FOR /F "tokens=*" %%g IN ('aws ec2 describe-instances --instance-ids %_Inst2Id% --query Reservations[].Instances[].NetworkInterfaces[].PrivateIpAddress --output text') do (SET _MgmtPIP2=%%g)
+call aws ec2 create-tags --resource %_Inst2Id% --tags Key=Name,Value=%_Name%Inst2 >> NULL
+call aws ec2 attach-network-interface --instance-id %_Inst2Id% --network-interface-id %_DNic2% --device-index 1 >> NULL
+
+
+:: Associate to Instance
+call aws ec2 associate-address --allocation-id %_Mgmt1EIP% --network-interface-id %_MNic1% --private-ip-address %_MgmtPIP1% >> NULL
+call aws ec2 associate-address --allocation-id %_Mgmt2EIP% --network-interface-id %_MNic2% --private-ip-address %_MgmtPIP2% >> NULL
+call aws ec2 associate-address --allocation-id %_DataEIP% --network-interface-id %_DNic1% --private-ip-address %_Data1PIP2% >> NULL
+
+FOR /F "tokens=*" %%g IN ('aws ec2 describe-addresses --allocation-ids %_Mgmt1EIP% --query Addresses[].PublicIp --output text') do (SET _MIP1=%%g)
+FOR /F "tokens=*" %%g IN ('aws ec2 describe-addresses --allocation-ids %_Mgmt2EIP% --query Addresses[].PublicIp --output text') do (SET _MIP2=%%g)
+FOR /F "tokens=*" %%g IN ('aws ec2 describe-addresses --allocation-ids %_DataEIP% --query Addresses[].PublicIp --output text') do (SET _DIP=%%g)
+
+ECHO "Please use ssh admin@%_MIP1% to login to the device 1"
+ECHO "Please use ssh admin@%_MIP2% to login to the device 2"
+ECHO "Note allocated Data IP is %_DIP%"
+pause
