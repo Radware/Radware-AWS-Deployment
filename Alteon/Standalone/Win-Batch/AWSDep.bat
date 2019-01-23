@@ -42,6 +42,9 @@ call aws ec2 authorize-security-group-ingress --group-id %_SecGr% --ip-permissio
 :: Create Data Nic
 FOR /F "tokens=*" %%g IN ('aws ec2 create-network-interface --subnet-id %_DataSubID% --description %_Name%Inst-Data-Nic --groups %_SecGr% --query NetworkInterface.NetworkInterfaceId  --output text') do (SET _DNic=%%g)
 call aws ec2 create-tags --resource %_DNic% --tags Key=Name,Value=%_Name%InstDataNic >> NULL
+FOR /F "tokens=*" %%g IN ('aws ec2 describe-network-interfaces --filters "Name=tag-value,Values=%_Name%InstDataNic" --query "NetworkInterfaces[].PrivateIpAddresses[].PrivateIpAddress"  --output text') do (SET _Data1PIP1=%%g)
+call aws ec2 assign-private-ip-addresses --network-interface-id %_DNic% --secondary-private-ip-address-count 1
+FOR /F "tokens=*" %%g IN ('aws ec2 describe-network-interfaces --filters "Name=tag-value,Values=%_Name%InstDataNic" --query "NetworkInterfaces[].PrivateIpAddresses[].PrivateIpAddress"  --output text') do ( FOR %a IN (%%g) do (IF %%a NEQ %_Data1PIP1% SET _Data1PIP2=%%a ) )
 
 :: Deploy the instance, add name TAG and attach a NIC
 FOR /F "tokens=*" %%g IN ('aws ec2 run-instances --image-id %_AmiId% --count 1 --instance-type c4.large --key-name %_Name%Key --security-group-ids %_SecGr% --subnet-id %_MgmtSubID% --query Instances[].InstanceId  --output text') do (SET _InstId=%%g)
@@ -56,10 +59,9 @@ FOR /F "tokens=*" %%g IN ('aws ec2 describe-instances --instance-ids %_InstId% -
 call aws ec2 create-tags --resource %_InstId% --tags Key=Name,Value=%_Name%Inst >> NULL
 call aws ec2 attach-network-interface --instance-id %_InstId% --network-interface-id %_DNic% --device-index 1 >> NULL
 
-:: ssisiate to Instance
-FOR /F "tokens=*" %%g IN ('aws ec2 describe-network-interfaces --filters "Name=tag-value,Values=%_Name%InstDataNic" --query NetworkInterfaces[].PrivateIpAddress  --output text') do (SET _DataPIP=%%g)
+:: Associate to Instance
 call aws ec2 associate-address --allocation-id %_MgmtEIP% --network-interface-id %_MNic% --private-ip-address %_MgmtPIP% >> NULL
-call aws ec2 associate-address --allocation-id %_DataEIP% --network-interface-id %_DNic% --private-ip-address %_DataPIP% >> NULL
+call aws ec2 associate-address --allocation-id %_DataEIP% --network-interface-id %_DNic% --private-ip-address %_Data1PIP2% >> NULL
 
 FOR /F "tokens=*" %%g IN ('aws ec2 describe-addresses --allocation-ids %_MgmtEIP% --query Addresses[].PublicIp --output text') do (SET _MIP=%%g)
 FOR /F "tokens=*" %%g IN ('aws ec2 describe-addresses --allocation-ids %_DataEIP% --query Addresses[].PublicIp --output text') do (SET _DIP=%%g)
