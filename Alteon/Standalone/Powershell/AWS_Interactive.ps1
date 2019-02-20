@@ -138,7 +138,7 @@ function validIP {
 }
 
 function funcApply {
-    $response = Invoke-WebRequest -Uri ("https://"+$MgmtPub.PublicIp+"/config?action=apply")  -Method POST -ContentType 'application/json'  -Body "" -Headers $Headers 
+    $response = Invoke-WebRequest -Uri ("https://"+$MgmtPub.PublicIp+"/config?action=apply")  -Method POST -ContentType 'application/json'  -Body "" -Credential $credential -UseBasicParsing
 }
 ################################
 ############# Key Pair #########
@@ -519,7 +519,7 @@ do {
     Start-Sleep -s 5
     Write-Host -NoNewline "."
     $counter++
-    try{$response=Invoke-WebRequest ('https://'+$MgmtPub.PublicIp+'/config') -Method PUT -Body ( ( @{ sysName=$_Name+"_1" } ) | ConvertTo-Json ) -Credential $credential -UseBasicParsing -TimeoutSec 1}catch{$response=@()}
+    try{$response=Invoke-WebRequest ('https://'+$MgmtPub.PublicIp+'/config') -Method PUT -Body ( ( @{ sysName=$_Name+"_1" } ) | ConvertTo-Json ) -Credential $credential -UseBasicParsing }catch{$response=@()}
     Write-Host -NoNewline "."
 } until ( $counter -ge 300 -or $response.StatusCode -eq 200 ) 
 if (-not $response.StatusCode -eq 200) {
