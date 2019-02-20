@@ -1,5 +1,5 @@
-$_AwsKey='AKIAJYIYZ5L6QQHU7THA'
-$_AwsSec='CYuTApl+kiG5CdNY7CjVNyrATt7C+XNcjqzbkU2m'
+$_AwsKey=''
+$_AwsSec=''
 $_Name="ValTest8"
 $_VpcPref="10.0.0.0/16"
 $_DataPref="10.0.0.0/24"
