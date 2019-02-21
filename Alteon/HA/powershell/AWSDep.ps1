@@ -1,6 +1,6 @@
-$_AwsKey='AKIAJTIJAQ4AI4UYYZ6Q'
-$_AwsSec='ZtlIsG+Nlf0LLyMpXV1/lKl0SE9fTQTCDUTBuUf6'
-$_Name="ValTest9"
+$_AwsKey=''
+$_AwsSec=''
+$_Name=""
 $_VpcPref="10.0.0.0/16"
 $_DataPref="10.0.0.0/24"
 $_MgmtPref="10.0.1.0/24"
