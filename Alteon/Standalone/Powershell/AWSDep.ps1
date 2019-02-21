@@ -263,3 +263,9 @@ $_URI='https://'+$MgmtPub.PublicIp+'/config/SlbNewCfgEnhVirtServicesTable/1/1/'
 $response = Invoke-RestMethod -Uri $_URI  -Method POST -Body $json -ContentType 'application/json' -Credential $credential -UseBasicParsing 
 if ($response.status -eq 200) { funcApply }
 funcApply
+
+Write-Host "Deployment was complete!"
+Write-Host -NoNewline "Please use the following IP for management:"
+Write-Host -NoNewline $MgmtPub.PublicIp
+write-Host -NoNewline " and the following IP for Data:"
+Write-Host -NoNewline $DataPub.PublicIp
