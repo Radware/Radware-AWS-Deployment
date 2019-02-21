@@ -36,13 +36,3 @@ the script ("AWSDep.ps1") contains 3 adjustable parameters:
 * _AwsSec - the secret corresponding with the key.
 * _region - the region we'll use for the deployment
 while running, the script will request some more data
-
-
-Regards,
-
-Valentine Gutkin
-ADC Professional Service Team Leader
-valentineg@Radware.com 
-T:  +972-72-3917821
- 
-
