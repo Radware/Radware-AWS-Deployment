@@ -35,4 +35,5 @@ the script ("AWS_Interactive.ps1	") contains 3 adjustable parameters:
 * _AwsKey - The API Key in AWS
 * _AwsSec - the secret corresponding with the key.
 * _region - the region we'll use for the deployment
+
 while running, the script will prompt for for all parameters allowing to use existing once
