@@ -2,7 +2,7 @@ $_AwsKey=''
 $_AwsSec=''
 $_Region=''
 Set-AWSCredential -AccessKey $_AwsKey -SecretKey $_AwsSec -StoreAs default
-Initialize-AWSDefaultConfiguration -ProfileName default -Region $_Region=''
+Initialize-AWSDefaultConfiguration -ProfileName default -Region $_Region
 
 Write-Host "================================="
 Write-Host "Welcome to AWS Deployment script!"
