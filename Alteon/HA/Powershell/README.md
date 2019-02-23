@@ -31,8 +31,9 @@ And some more optional parameters
 * _realIPList - list of backend servers
 
 ### Using Interactive Mode ###
-the script ("AWSDep.ps1") contains 3 adjustable parameters:
+the script ("AWS_Interactive.ps1") contains 3 adjustable parameters:
 * _AwsKey - The API Key in AWS
 * _AwsSec - the secret corresponding with the key.
 * _region - the region we'll use for the deployment
+
 while running, the script will request some more data
