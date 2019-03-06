@@ -1,24 +1,6 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
   "Parameters": {
-    "GELLicesneServerId": {
-      "Description": "License Server ID",
-      "Type": "String"
-    },
-    "GELActivationID": {
-      "Description": "Activation ID",
-      "Type": "String"
-    },
-    "GELType": {
-      "Description": "Type",
-      "Type": "String",
-      "AllowedValues": ["deliver", "perform", "secure"]
-    },
-    "GELThroughput": {
-      "Description": "Throughput",
-      "Type": "Number",
-      "AllowedValues": [25, 50, 100, 200, 500, 1000, 3000, 6000, 10000, 17000, 40000, 100000, 160000, 225000]
-    },
     "VPCCidrBlock": {
       "Type": "String",
       "Description": "The /16 CIDR block for the VPC (Format Example: 10.0.0.0/16)",
@@ -197,7 +179,7 @@
         "SubnetId" : { "Ref" : "VPCSn1" },
         "Description" :"Interface for control traffic",
         "GroupSet" : [ {"Ref" : "InstanceSecurityGroup"} ],
-        "Tags": [{"Key": "Name", "Value": {"Fn::Join": ["_", [{ "Ref": "AWS::StackName" }, "Mng_Nic"] ] }}],
+        "Tags": [{"Key": "Name", "Value": {"Fn::Join": ["_", [{ "Ref": "AWS::StackName" }, "Mng_Nic"] ] }}]
       },
       "DependsOn": ["VPCSn1", "VPCSn2", "InstanceSecurityGroup"]
     },
@@ -208,7 +190,7 @@
         "Description" :"Interface for web traffic",
         "GroupSet" : [ {"Ref" : "InstanceSecurityGroup"} ],
         "SecondaryPrivateIpAddressCount" : 1,
-        "Tags": [{"Key": "Name", "Value": {"Fn::Join": ["_", [{ "Ref": "AWS::StackName" }, "Data_Nic"] ] }}],
+        "Tags": [{"Key": "Name", "Value": {"Fn::Join": ["_", [{ "Ref": "AWS::StackName" }, "Data_Nic"] ] }}]
       },
       "DependsOn": ["VPCSn1", "VPCSn2", "InstanceSecurityGroup"]
     },
@@ -223,19 +205,7 @@
         }, { 
             "NetworkInterfaceId" : {"Ref" : "DataXface"},
             "DeviceIndex" : "1" 
-        }],
-        "UserData": {
-          "Fn::Base64": {
-            "Fn::Join": ["", [
-                "#!/bin/bash\n",
-                "cd /var/tmp\n",
-                "echo \"Throughput = ", { "Ref": "GELThroughput"}, "\" >> gel.cfg\n",
-                "echo \"Type = ", {"Ref": "GELType"}, "\" >> gel.cfg\n",
-                "echo \"LicenseServerId = ", { "Ref": "GELLicesneServerId" }, "\" >> gel.cfg\n",
-                "echo \"ActivationId = ", { "Ref": "GELActivationID" }, "\" >> gel.cfg\n"
-              ]]
-          }
-        }
+        }]
       },
       "Type": "AWS::EC2::Instance",
       "DependsOn": ["MgmtXface", "DataXface"]
