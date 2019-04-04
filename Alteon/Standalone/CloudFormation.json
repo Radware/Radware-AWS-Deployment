@@ -180,7 +180,7 @@
         "EnableDnsHostnames": true
       }
     },
-    "VPCSn1": {
+    "MgmtSubnet": {
       "Type": "AWS::EC2::Subnet",
       "Properties": {
         "Tags": [{
@@ -219,7 +219,7 @@
       },
       "DependsOn": "VPC"
     },
-    "VPCSn2": {
+    "DataSubnet": {
       "Type": "AWS::EC2::Subnet",
       "Properties": {
         "Tags": [{
@@ -254,13 +254,7 @@
         "VpcId": {
           "Ref": "VPC"
         },
-        "AvailabilityZone": {
-          "Fn::Select": [
-            "1", {
-              "Fn::GetAZs": ""
-            }
-          ]
-        }
+        "AvailabilityZone": { "Fn::Select": [ "0", { "Fn::GetAZs": "" } ] }
       },
       "DependsOn": "VPC"
     },
@@ -309,7 +303,7 @@
       },
       "DependsOn": "VPC"
     },
-    "VPCRt": {
+    "PublicRouteTbl": {
       "Type": "AWS::EC2::RouteTable",
       "Properties": {
         "Tags": [{
@@ -332,7 +326,7 @@
       },
       "DependsOn": "VPC"
     },
-    "PrivateVPCRt": {
+    "PrivateRouteTbl": {
       "Type": "AWS::EC2::RouteTable",
       "Properties": {
         "Tags": [{
@@ -355,58 +349,57 @@
       },
       "DependsOn": "VPC"
     },
-
-    "VPCSn1RtAssoc": {
+    "MgmtRouteTblAssoc": {
       "Type": "AWS::EC2::SubnetRouteTableAssociation",
       "Properties": {
         "RouteTableId": {
-          "Ref": "VPCRt"
+          "Ref": "PublicRouteTbl"
         },
         "SubnetId": {
-          "Ref": "VPCSn1"
+          "Ref": "MgmtSubnet"
         }
       },
-      "DependsOn": "VPCRt"
+      "DependsOn": "PublicRouteTbl"
     },
-    "VPCSn2RtAssoc": {
+    "DataRouteTblAssoc": {
       "Type": "AWS::EC2::SubnetRouteTableAssociation",
       "Properties": {
         "RouteTableId": {
-          "Ref": "VPCRt"
+          "Ref": "PublicRouteTbl"
         },
         "SubnetId": {
-          "Ref": "VPCSn2"
+          "Ref": "DataSubnet"
         }
       },
-      "DependsOn": "VPCRt"
+      "DependsOn": "PublicRouteTbl"
     },
-    "LambdaRouteAssoc": {
+    "LambdaRouteTblAssoc": {
       "DependsOn": ["LambRoute", "LambdaSubnet"],
       "Type": "AWS::EC2::SubnetRouteTableAssociation",
       "Properties": {
         "RouteTableId": {
-          "Ref": "PrivateVPCRt"
+          "Ref": "PrivateRouteTbl"
         },
         "SubnetId": {
           "Ref": "LambdaSubnet"
         }
       },
-      "DependsOn": "VPCRt"
+      "DependsOn": "PublicRouteTbl"
     },
-    "VPCDefaultRoute1": {
+    "PublicDefaultRoute": {
       "Type": "AWS::EC2::Route",
       "Properties": {
         "DestinationCidrBlock": "0.0.0.0/0",
         "RouteTableId": {
-          "Ref": "VPCRt"
+          "Ref": "PublicRouteTbl"
         },
         "GatewayId": {
-          "Ref": "VPCIGW"
+          "Ref": "PublicInternetGateway"
         }
       },
-      "DependsOn": "VPCIGWAttachment"
+      "DependsOn": "PublicInternetGatewayAssoc"
     },
-    "VPCIGW": {
+    "PublicInternetGateway": {
       "Type": "AWS::EC2::InternetGateway",
       "Properties": {
         "Tags": [{
@@ -426,19 +419,19 @@
       },
       "DependsOn": "VPC"
     },
-    "VPCIGWAttachment": {
+    "PublicInternetGatewayAssoc": {
       "Type": "AWS::EC2::VPCGatewayAttachment",
       "Properties": {
         "VpcId": {
           "Ref": "VPC"
         },
         "InternetGatewayId": {
-          "Ref": "VPCIGW"
+          "Ref": "PublicInternetGateway"
         }
       },
-      "DependsOn": "VPCIGW"
+      "DependsOn": "PublicInternetGateway"
     },
-    "InstanceSecurityGroup": {
+    "RadwareSecurityGrp": {
       "Type": "AWS::EC2::SecurityGroup",
       "Properties": {
         "Tags": [{
@@ -497,7 +490,7 @@
     },
     "AlteonScaleLaunchConfig" : {
       "Type" : "AWS::AutoScaling::LaunchConfiguration",
-      "DependsOn": ["InstanceSecurityGroup", "RadwareASFunc", "CloudWatchRule", "LambdaLogPermission"],
+      "DependsOn": ["RadwareSecurityGrp", "RadwareLambdaFunc", "CloudWatchRule", "LambdaLogPermission"],
       "Properties" : {
         "ImageId" : "ami-0d2000c6b23d394d4",
         "UserData": {
@@ -629,15 +622,43 @@
             ]
           }
         },
-        "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
+        "SecurityGroups" : [ { "Ref" : "RadwareSecurityGrp" } ],
         "InstanceType" : "m3.medium"
       }
     },
+    "RadwareELB" : {
+      "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties" : {
+        "Subnets" : [{"Ref" : "MgmtSubnet"}],
+        "CrossZone" : "true",
+        "Listeners" : [ {
+          "LoadBalancerPort" : "80",
+          "InstancePort" : "80",
+          "Protocol" : "TCP"
+        }, {
+          "LoadBalancerPort" : "443",
+          "InstancePort" : "443",
+          "Protocol" : "TCP"
+        }, {
+          "LoadBalancerPort" : "2222",
+          "InstancePort" : "2222",
+          "Protocol" : "TCP"
+        } ],
+        "HealthCheck" : {
+          "Target" : "TCP:443",
+          "HealthyThreshold" : "3",
+          "UnhealthyThreshold" : "5",
+          "Interval" : "30",
+          "Timeout" : "5"
+        }
+      }
+    },
     "AlteonScaleGroup" : {
-      "DependsOn": ["LambdaNATGw", "AlteonScaleLaunchConfig"],
+      "DependsOn": ["LambdaNATGw", "AlteonScaleLaunchConfig", "RadwareELB"],
       "Type" : "AWS::AutoScaling::AutoScalingGroup",
       "Properties" : {
-        "VPCZoneIdentifier": [ {"Ref": "VPCSn1"} ],
+        "LoadBalancerNames" : [ { "Ref" : "RadwareELB" } ],
+        "VPCZoneIdentifier": [ {"Ref": "MgmtSubnet"} ],
         "LaunchConfigurationName" : { "Ref" : "AlteonScaleLaunchConfig" },
         "MinSize" : {"Ref": "ScaleMinSize"},
         "MaxSize" : {"Ref": "ScaleMaxSize"},
@@ -653,7 +674,7 @@
         ]
       }
     },
-    "RadwareASRole": {
+    "RadwareIAMRole": {
       "Type": "AWS::IAM::Role",
       "Properties": {
         "AssumeRolePolicyDocument": {
@@ -686,7 +707,7 @@
               ]
             }
           }, {
-            "PolicyName": "RadwareASPolicy",
+            "PolicyName": "RadwareIAMPol",
             "PolicyDocument": {
               "Version": "2012-10-17",
               "Statement": [{
@@ -708,13 +729,13 @@
         ]
       }
     },
-    "RadwareASPolicy": {
-      "DependsOn": "RadwareASRole",
+    "RadwareIAMPol": {
+      "DependsOn": "RadwareIAMRole",
       "Type": "AWS::IAM::Policy",
       "Properties": {
-        "PolicyName": "RadwareASPolicy",
+        "PolicyName": "RadwareIAMPol",
         "Roles": [{
-            "Ref": "RadwareASRole"
+            "Ref": "RadwareIAMRole"
           }, {"Ref": "ApiGatewayCloudWatchLogsRole"}
         ],
         "PolicyDocument": {
@@ -727,6 +748,7 @@
                 "autoscaling:DescribeAutoScalingGroups",
                 "ec2:AttachNetworkInterface",
                 "ec2:CreateNetworkInterface",
+                "ec2:CreateTags",
                 "ec2:DescribeInstances",
                 "ec2:DeleteNetworkInterface",
                 "ec2:DescribeNetworkInterfaces",
@@ -749,20 +771,20 @@
         }
       }
     },
-    "RadwareASFunc": {
+    "RadwareLambdaFunc": {
       "Type": "AWS::Lambda::Function",
-      "DependsOn": [ "RadwareASRole", "RadwareASPolicy" ],
+      "DependsOn": [ "RadwareIAMRole", "RadwareIAMPol" ],
       "Properties": {
         "VpcConfig":{
           "SubnetIds": [ {"Ref": "LambdaSubnet"}],
-          "SecurityGroupIds": [{"Ref": "InstanceSecurityGroup"}]
+          "SecurityGroupIds": [{"Ref": "RadwareSecurityGrp"}]
         },
         "Code": {
           "S3Bucket": "cftempl",
           "S3Key": "aws_lambda_autoscale_ddns.zip"
         },
         "Role": {
-          "Fn::GetAtt": ["RadwareASRole", "Arn"]
+          "Fn::GetAtt": ["RadwareIAMRole", "Arn"]
         },
         "Timeout": 60,
         "Handler": "aws_lambda_autoscale_ddns.lambda_handler",
@@ -774,21 +796,21 @@
             "GELThroughput": {"Ref": "GELThroughput"},
             "GELType": {"Ref": "GELType"},
             "Domain": {"Ref": "Domain"},
-            "DataSubnetID": {"Ref": "VPCSn2"}
+            "DataSubnetID": {"Ref": "DataSubnet"}
           }
         }
       }
     },
     "LambdaNATGw" : {
-      "DependsOn" : "VPCIGWAttachment",
+      "DependsOn" : "PublicInternetGatewayAssoc",
       "Type" : "AWS::EC2::NatGateway",
       "Properties" : {
-        "AllocationId" : { "Fn::GetAtt" : ["EIP", "AllocationId"]},
-        "SubnetId" : { "Ref" : "VPCSn1"},
+        "AllocationId" : { "Fn::GetAtt" : ["NatGWEip", "AllocationId"]},
+        "SubnetId" : { "Ref" : "MgmtSubnet"},
         "Tags" : [ {"Key" : "Name", "Value" : { "Fn::Join": [ "_", [{ "Ref": "AWS::StackName" }, "natGw"] ] } } ]
       }
     },
-    "EIP" : {
+    "NatGWEip" : {
       "Type" : "AWS::EC2::EIP",
       "Properties" : {
         "Domain" : "vpc"
@@ -797,14 +819,14 @@
     "LambRoute" : {
       "Type" : "AWS::EC2::Route",
       "Properties" : {
-        "RouteTableId" : { "Ref" : "PrivateVPCRt" },
+        "RouteTableId" : { "Ref" : "PrivateRouteTbl" },
         "DestinationCidrBlock" : "0.0.0.0/0",
         "NatGatewayId" : { "Ref" : "LambdaNATGw" }
       }
     },
     "CloudWatchRule": {
       "Type": "AWS::Events::Rule",
-      "DependsOn": "RadwareASFunc",
+      "DependsOn": "RadwareLambdaFunc",
       "Properties": {
         "Description": "CloudWatchRule",
         "EventPattern": {
@@ -822,8 +844,8 @@
         },
         "State": "ENABLED",
         "Targets": [{
-            "Arn": { "Fn::GetAtt": ["RadwareASFunc", "Arn"] },
-            "Id": "RadwareASFunc"
+            "Arn": { "Fn::GetAtt": ["RadwareLambdaFunc", "Arn"] },
+            "Id": "RadwareLambdaFunc"
           }
         ]
       }
@@ -923,7 +945,7 @@
       "Type": "AWS::Lambda::Permission",
       "Properties": {
         "Action": "lambda:invokeFunction",
-        "FunctionName": { "Ref": "RadwareASFunc" },
+        "FunctionName": { "Ref": "RadwareLambdaFunc" },
         "Principal": "apigateway.amazonaws.com",
         "SourceArn": {
           "Fn::Join": ["", ["arn:aws:execute-api:", { "Ref": "AWS::Region"}, ":", { "Ref": "AWS::AccountId" }, ":", { "Ref": "LambdaApi" }, "/*"]]
@@ -934,7 +956,7 @@
       "Type": "AWS::Lambda::Permission",
       "Properties": {
         "Action": "lambda:invokeFunction",
-        "FunctionName": { "Ref": "RadwareASFunc" },
+        "FunctionName": { "Ref": "RadwareLambdaFunc" },
         "Principal": "events.amazonaws.com",
         "SourceArn": { "Fn::GetAtt": [ "CloudWatchRule", "Arn" ] }
       }
@@ -948,7 +970,7 @@
         "Integration": {
           "Type": "AWS",
           "IntegrationHttpMethod": "POST",
-          "Uri": { "Fn::Join": ["", ["arn:aws:apigateway:", { "Ref": "AWS::Region" }, ":lambda:path/2015-03-31/functions/", {"Fn::GetAtt": ["RadwareASFunc", "Arn"] }, "/invocations"] ] },
+          "Uri": { "Fn::Join": ["", ["arn:aws:apigateway:", { "Ref": "AWS::Region" }, ":lambda:path/2015-03-31/functions/", {"Fn::GetAtt": ["RadwareLambdaFunc", "Arn"] }, "/invocations"] ] },
           "IntegrationResponses": [{
               "StatusCode": 200,
               "ResponseTemplates": { "application/json": "$input.json('$.body')" }
@@ -960,5 +982,12 @@
         "MethodResponses": [{ "StatusCode": 200 } ]
       }
     }
+  },
+  "Outputs" : {
+    "URL" : {
+      "Description" : "Alteon Management",
+      "Value" :  { "Fn::Join" : [ "", [ "https://", { "Fn::GetAtt" : [ "RadwareELB", "DNSName" ]}]]}
+    }
   }
+
 }
