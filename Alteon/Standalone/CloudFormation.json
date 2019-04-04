@@ -383,8 +383,7 @@
         "SubnetId": {
           "Ref": "LambdaSubnet"
         }
-      },
-      "DependsOn": "PublicRouteTbl"
+      }
     },
     "PublicDefaultRoute": {
       "Type": "AWS::EC2::Route",
@@ -488,11 +487,21 @@
       },
       "DependsOn": "VPC"
     },
+    "Adding2ndENI": {
+      "DependsOn": "AlteonScaleGroup",
+      "Type": "AWS::AutoScaling::LifecycleHook",
+      "Properties": {
+        "AutoScalingGroupName": { "Ref": "AlteonScaleGroup" },
+        "LifecycleTransition": "autoscaling:EC2_INSTANCE_LAUNCHING",
+        "DefaultResult": "ABANDON",
+        "HeartbeatTimeout" : 300
+      }
+    },
     "AlteonScaleLaunchConfig" : {
       "Type" : "AWS::AutoScaling::LaunchConfiguration",
       "DependsOn": ["RadwareSecurityGrp", "RadwareLambdaFunc", "CloudWatchRule", "LambdaLogPermission"],
       "Properties" : {
-        "ImageId" : "ami-0d2000c6b23d394d4",
+        "ImageId" : "ami-0ca0c2a86813e16ad",
         "UserData": {
           "Fn::Base64": {
             "Fn::Join": [ "", [
@@ -627,6 +636,7 @@
       }
     },
     "RadwareELB" : {
+      "DependsOn": "PublicInternetGatewayAssoc",
       "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
       "Properties" : {
         "Subnets" : [{"Ref" : "MgmtSubnet"}],
@@ -744,6 +754,7 @@
               "Sid": "VisualEditor0",
               "Effect": "Allow",
               "Action": [
+                "autoscaling:CompleteLifecycleAction",
                 "autoscaling:DescribeAutoScalingInstances",
                 "autoscaling:DescribeAutoScalingGroups",
                 "ec2:AttachNetworkInterface",
@@ -754,6 +765,7 @@
                 "ec2:DescribeNetworkInterfaces",
                 "ec2:DescribeSubnets",
                 "ec2:DescribeVpcs",
+                "ec2:RebootInstances",
                 "route53:ChangeResourceRecordSets",
                 "route53:CreateHostedZone",
                 "route53:GetHostedZone",
@@ -850,6 +862,29 @@
         ]
       }
     },
+    "LifecycleEventRule": {
+      "Type": "AWS::Events::Rule",
+      "DependsOn": "RadwareLambdaFunc",
+      "Properties": {
+        "Description": "Trigger Lambda for Lifecycle events",
+        "EventPattern": {
+          "detail-type": [
+            "EC2 Instance-launch Lifecycle Action",
+          ],
+          "source": ["aws.autoscaling"],
+          "detail": {
+            "AutoScalingGroupName": [ {"Ref": "AlteonScaleGroup"}]
+          }
+        },
+        "State": "ENABLED",
+        "Targets": [{
+            "Arn": { "Fn::GetAtt": ["RadwareLambdaFunc", "Arn"] },
+            "Id": "RadwareLambdaFunc"
+          }
+        ]
+      }
+    },
+
     "LambdaApi": {
       "Type": "AWS::ApiGateway::RestApi",
       "Properties": {
