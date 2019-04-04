@@ -380,6 +380,19 @@
       },
       "DependsOn": "VPCRt"
     },
+    "LambdaRouteAssoc": {
+      "DependsOn": ["LambRoute", "LambdaSubnet"],
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateVPCRt"
+        },
+        "SubnetId": {
+          "Ref": "LambdaSubnet"
+        }
+      },
+      "DependsOn": "VPCRt"
+    },
     "VPCDefaultRoute1": {
       "Type": "AWS::EC2::Route",
       "Properties": {
@@ -710,22 +723,23 @@
               "Sid": "VisualEditor0",
               "Effect": "Allow",
               "Action": [
+                "autoscaling:DescribeAutoScalingInstances",
+                "autoscaling:DescribeAutoScalingGroups",
+                "ec2:AttachNetworkInterface",
+                "ec2:CreateNetworkInterface",
                 "ec2:DescribeInstances",
+                "ec2:DeleteNetworkInterface",
+                "ec2:DescribeNetworkInterfaces",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeVpcs",
+                "route53:ChangeResourceRecordSets",
                 "route53:CreateHostedZone",
                 "route53:GetHostedZone",
                 "route53:ListHostedZones",
-                "ec2:DeleteNetworkInterface",
-                "route53:ChangeResourceRecordSets",
-                "logs:CreateLogGroup",
-                "logs:PutLogEvents",
-                "ec2:CreateNetworkInterface",
-                "logs:CreateLogStream",
-                "ec2:DescribeNetworkInterfaces",
-                "ec2:DescribeVpcs",
-                "autoscaling:DescribeAutoScalingGroups",
                 "route53:ListResourceRecordSets",
-                "ec2:AttachNetworkInterface",
-                "ec2:DescribeSubnets"
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
               ],
               "Resource": [
                 "*"
