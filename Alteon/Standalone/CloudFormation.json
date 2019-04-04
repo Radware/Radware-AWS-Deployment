@@ -1,21 +1,180 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [{
+          "Label": {
+            "default": "Basic Configuration"
+          },
+          "Parameters": ["VPCCidrBlock", "DNSSERVERIP", "Domain", "ScaleMinSize", "ScaleMaxSize"]
+        }, {
+          "Label": {
+            "default": "GEL Configuration"
+          },
+          "Parameters": ["GELActivationID", "GELLicesneServerId", "GELPRIMLLSURL", "GEL2NDLLSURL", "GELThroughput", "GELType"]
+        }, {
+          "Label": {
+            "default": "SLB Configuration"
+          },
+          "Parameters": ["SLBPORT", "SLBRPORT", "SLBMETRIC", "REALLIST"]
+        }
+      ],
+      "ParameterLabels": {
+        "Stack name": {
+          "default": "Cluster Name"
+        },
+        "DNSSERVERIP": {
+          "default": "DNS Server IP"
+        },
+        "Domain": {
+          "default": "Domain name for the scale group"
+        },
+        "GELActivationID": {
+          "default": "Entitlement ID"
+        },
+        "GELLicesneServerId": {
+          "default": "Cloud License Server URL"
+        },
+        "GELPRIMLLSURL": {
+          "default": "Primary Local License Server URL"
+        },
+        "GEL2NDLLSURL": {
+          "default": "Secondary Local License Server URL"
+        },
+        "GELThroughput": {
+          "default": "Required Throughput"
+        },
+        "GELType": {
+          "default": "Required License Pack"
+        },
+        "SLBPORT": {
+          "default": "TCP Port of the LB"
+        },
+        "SLBRPORT": {
+          "default": "TCP Port of the App Server"
+        }
+      }
+    }
+  },
   "Parameters": {
+    "ScaleMinSize": {
+      "Type": "Number",
+      "Description": "Minimum instances",
+      "Default": 1,
+      "MinValue": "1",
+      "MaxValue": "65535"
+    },
+    "ScaleMaxSize": {
+      "Type": "Number",
+      "Description": "Maximum instances",
+      "Default": 2,
+      "MinValue": "1",
+      "MaxValue": "10"
+    },
+    "SLBRPORT": {
+      "Type": "Number",
+      "Description": "TCP/IP port for the web server",
+      "Default": 80,
+      "MinValue": "1",
+      "MaxValue": "65535"
+    },
+    "SLBPORT": {
+      "Type": "Number",
+      "Description": "TCP/IP port for the web server",
+      "Default": 80,
+      "MinValue": "1",
+      "MaxValue": "65535"
+    },
+    "DNSSERVERIP": {
+      "Type": "String",
+      "Default": "8.8.8.8"
+    },
+    "SLBMETRIC": {
+      "Type": "String",
+      "AllowedValues": [
+        "Least Connections",
+        "Round Robin"
+      ],
+      "Default": "Least Connections"
+    },
+    "Domain": {
+      "Type": "String",
+      "Default": "alteon.internal"
+    },
+    "GELLicesneServerId": {
+      "Type": "String"
+    },
+    "GELActivationID": {
+      "Type": "String"
+    },
+    "REALLIST": {
+      "Type": "String",
+      "Description" : "The list of static application servers seperated by \",\""
+    },
+    "GELPRIMLLSURL": {
+      "Type": "String"
+    },
+    "GEL2NDLLSURL": {
+      "Type": "String"
+    },
+    "GELType": {
+      "Type": "String",
+      "AllowedValues": [
+        "Deliver",
+        "Perform",
+        "Secure"
+      ]
+    },
+    "GELThroughput": {
+      "Type": "Number",
+      "AllowedValues": [
+        25,
+        50,
+        100,
+        200,
+        500,
+        1000,
+        3000,
+        6000,
+        10000,
+        17000,
+        40000,
+        100000,
+        160000,
+        225000
+      ]
+    },
     "VPCCidrBlock": {
       "Type": "String",
       "Description": "The /16 CIDR block for the VPC (Format Example: 10.0.0.0/16)",
       "MinLength": "9",
       "MaxLength": "18",
-      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.0\\.0/16",
-      "ConstraintDescription": "Must be a valid IP CIDR block with a /16"
+      "AllowedPattern": "^(\\d{1,3})\\.(\\d{1,3})\\.0\\.0/16$",
+      "ConstraintDescription": "Must be a valid IP CIDR block with a /16",
+      "Default": "10.0.0.0/16"
     }
   },
   "Resources": {
     "VPC": {
       "Type": "AWS::EC2::VPC",
       "Properties": {
-        "Tags": [{"Key": "Name", "Value": {"Fn::Join": ["_", [{ "Ref": "AWS::StackName" }, "vpc"] ] }}],
-        "CidrBlock": { "Ref": "VPCCidrBlock" },
+        "Tags": [{
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "_",
+                [{
+                    "Ref": "AWS::StackName"
+                  },
+                  "vpc"
+                ]
+              ]
+            }
+          }
+        ],
+        "CidrBlock": {
+          "Ref": "VPCCidrBlock"
+        },
         "InstanceTenancy": "default",
         "EnableDnsSupport": true,
         "EnableDnsHostnames": true
@@ -24,191 +183,768 @@
     "VPCSn1": {
       "Type": "AWS::EC2::Subnet",
       "Properties": {
-        "Tags": [{"Key": "Name", "Value": {"Fn::Join": ["_", [{ "Ref": "AWS::StackName" }, "Mng_Subnet"] ] }}],
-        "CidrBlock": { "Fn::Select": [0, { "Fn::Cidr": [{ "Fn::GetAtt": ["VPC", "CidrBlock"] }, 256, 8] } ] },
-        "VpcId": { "Ref": "VPC" },
-        "AvailabilityZone" : { "Fn::Select" : [ "0", { "Fn::GetAZs" : "" } ] }
+        "Tags": [{
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "_",
+                [{
+                    "Ref": "AWS::StackName"
+                  },
+                  "Mng_Subnet"
+                ]
+              ]
+            }
+          }
+        ],
+        "CidrBlock": {
+          "Fn::Select": [
+            0, {
+              "Fn::Cidr": [{
+                  "Fn::GetAtt": [
+                    "VPC",
+                    "CidrBlock"
+                  ]
+                },
+                256,
+                8
+              ]
+            }
+          ]
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "AvailabilityZone": { "Fn::Select": [ "0", { "Fn::GetAZs": "" } ] }
       },
       "DependsOn": "VPC"
     },
     "VPCSn2": {
       "Type": "AWS::EC2::Subnet",
       "Properties": {
-        "Tags": [{"Key": "Name", "Value": {"Fn::Join": ["_", [{ "Ref": "AWS::StackName" }, "data_Subnet"] ] }}],
-        "CidrBlock": { "Fn::Select": [1, {"Fn::Cidr": [{ "Fn::GetAtt": ["VPC", "CidrBlock"]}, 256, 8]}] },
-        "VpcId": { "Ref": "VPC" },
-        "AvailabilityZone" : { "Fn::Select" : [ "0", { "Fn::GetAZs" : "" } ] }
+        "Tags": [{
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "_",
+                [{
+                    "Ref": "AWS::StackName"
+                  },
+                  "Data_Subnet"
+                ]
+              ]
+            }
+          }
+        ],
+        "CidrBlock": {
+          "Fn::Select": [
+            1, {
+              "Fn::Cidr": [{
+                  "Fn::GetAtt": [
+                    "VPC",
+                    "CidrBlock"
+                  ]
+                },
+                256,
+                8
+              ]
+            }
+          ]
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "1", {
+              "Fn::GetAZs": ""
+            }
+          ]
+        }
       },
       "DependsOn": "VPC"
     },
-    "VPCPubRt1": {
+    "LambdaSubnet": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "Tags": [{
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "_",
+                [{
+                    "Ref": "AWS::StackName"
+                  },
+                  "Lambda_Subnet"
+                ]
+              ]
+            }
+          }
+        ],
+        "CidrBlock": {
+          "Fn::Select": [
+            3, {
+              "Fn::Cidr": [{
+                  "Fn::GetAtt": [
+                    "VPC",
+                    "CidrBlock"
+                  ]
+                },
+                256,
+                8
+              ]
+            }
+          ]
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "2", {
+              "Fn::GetAZs": ""
+            }
+          ]
+        }
+      },
+      "DependsOn": "VPC"
+    },
+    "VPCRt": {
       "Type": "AWS::EC2::RouteTable",
       "Properties": {
-        "Tags": [{"Key": "Name", "Value": {"Fn::Join": ["_", [{ "Ref": "AWS::StackName" }, "Mng_Route"] ] }}],
-        "VpcId": { "Ref": "VPC" }
+        "Tags": [{
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "_",
+                [{
+                    "Ref": "AWS::StackName"
+                  },
+                  "Route"
+                ]
+              ]
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "VPC"
+        }
       },
       "DependsOn": "VPC"
     },
-    "VPCPubRt2": {
+    "PrivateVPCRt": {
       "Type": "AWS::EC2::RouteTable",
       "Properties": {
-        "Tags": [{"Key": "Name", "Value": {"Fn::Join": ["_", [{ "Ref": "AWS::StackName" }, "Data_Subnet"] ] }}],
-        "VpcId": { "Ref": "VPC" }
+        "Tags": [{
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "_",
+                [{
+                    "Ref": "AWS::StackName"
+                  },
+                  "Route"
+                ]
+              ]
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "VPC"
+        }
       },
       "DependsOn": "VPC"
     },
+
     "VPCSn1RtAssoc": {
       "Type": "AWS::EC2::SubnetRouteTableAssociation",
       "Properties": {
-        "RouteTableId": { "Ref": "VPCPubRt1" },
-        "SubnetId": { "Ref": "VPCSn1" }
+        "RouteTableId": {
+          "Ref": "VPCRt"
+        },
+        "SubnetId": {
+          "Ref": "VPCSn1"
+        }
       },
-      "DependsOn": "VPCPubRt1"
+      "DependsOn": "VPCRt"
     },
     "VPCSn2RtAssoc": {
       "Type": "AWS::EC2::SubnetRouteTableAssociation",
       "Properties": {
-        "RouteTableId": { "Ref": "VPCPubRt2" },
-        "SubnetId": { "Ref": "VPCSn2" }
+        "RouteTableId": {
+          "Ref": "VPCRt"
+        },
+        "SubnetId": {
+          "Ref": "VPCSn2"
+        }
       },
-      "DependsOn": "VPCPubRt2"
+      "DependsOn": "VPCRt"
     },
     "VPCDefaultRoute1": {
       "Type": "AWS::EC2::Route",
       "Properties": {
         "DestinationCidrBlock": "0.0.0.0/0",
-        "RouteTableId": { "Ref": "VPCPubRt1" },
-        "GatewayId": { "Ref": "VPCIGW" }
-      },
-      "DependsOn": "VPCIGWAttachment"
-    },
-    "VPCDefaultRoute2": {
-      "Type": "AWS::EC2::Route",
-      "Properties": {
-        "DestinationCidrBlock": "0.0.0.0/0",
-        "RouteTableId": { "Ref": "VPCPubRt2" },
-        "GatewayId": { "Ref": "VPCIGW" }
+        "RouteTableId": {
+          "Ref": "VPCRt"
+        },
+        "GatewayId": {
+          "Ref": "VPCIGW"
+        }
       },
       "DependsOn": "VPCIGWAttachment"
     },
     "VPCIGW": {
       "Type": "AWS::EC2::InternetGateway",
-      "Properties" :{
-        "Tags": [{"Key": "Name", "Value": {"Fn::Join": ["_", [{ "Ref": "AWS::StackName" }, "IGW"] ] }}]
+      "Properties": {
+        "Tags": [{
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "_",
+                [{
+                    "Ref": "AWS::StackName"
+                  },
+                  "IGW"
+                ]
+              ]
+            }
+          }
+        ]
       },
       "DependsOn": "VPC"
     },
     "VPCIGWAttachment": {
       "Type": "AWS::EC2::VPCGatewayAttachment",
       "Properties": {
-        "VpcId": { "Ref": "VPC"},
-        "InternetGatewayId": { "Ref": "VPCIGW" }
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "InternetGatewayId": {
+          "Ref": "VPCIGW"
+        }
       },
       "DependsOn": "VPCIGW"
     },
-    "InstanceSecurityGroup" : {
-      "Type" : "AWS::EC2::SecurityGroup",
-      "Properties" : {
-        "Tags": [{"Key": "Name", "Value": {"Fn::Join": ["_", [{ "Ref": "AWS::StackName" }, "SecGrp"] ] }}],
-        "GroupDescription" : "Alteon Security Group",
-        "VpcId" : {"Ref" : "VPC"},
-        "SecurityGroupIngress" : [{
-            "IpProtocol" : "tcp",
-            "FromPort" : 443,
-            "ToPort" : 443,
-            "CidrIp" : "0.0.0.0/0"
-         }, { 
-            "IpProtocol" : "tcp",
-            "FromPort" : 2222,
-            "ToPort" : 2222,
-            "CidrIp" : "0.0.0.0/0"
-         }, { 
-            "IpProtocol" : "icmp",
-            "FromPort" : 1,
-            "ToPort" : 1,
-            "CidrIp" : "0.0.0.0/0"
-         }, { 
-            "IpProtocol" : "udp",
-            "FromPort" : 2090,
-            "ToPort" : 2090,
-            "CidrIp" : "0.0.0.0/0"
-         }, { 
-            "IpProtocol" : "tcp",
-            "FromPort" : 3121,
-            "ToPort" : 3121,
-            "CidrIp" : "0.0.0.0/0"
-         }
-       ]
-      },
-      "DependsOn": "VPC"
-    },
-    "MgmtEip": {
-      "Type" : "AWS::EC2::EIP",
-      "Properties" : {
-        "Domain" : "vpc"
-      },
-      "DependsOn": "VPC"
-    },
-    "AssociateMgmtPort" : {
-      "Type" : "AWS::EC2::EIPAssociation",
-      "Properties" : {
-        "AllocationId" : { "Fn::GetAtt" : [ "MgmtEip", "AllocationId" ]},
-        "NetworkInterfaceId" : { "Ref" : "MgmtXface" }
-      },
-      "DependsOn": ["MgmtEip", "MgmtXface"]
-    },
-    "DataEip": {
-      "Type" : "AWS::EC2::EIP",
-      "Properties" : {
-        "Domain" : "vpc"
-      },
-      "DependsOn": "VPC"
-    },
-    "AssociateDataPort" : {
-      "Type" : "AWS::EC2::EIPAssociation",
-      "Properties" : {
-        "AllocationId": { "Fn::GetAtt" : [ "DataEip", "AllocationId" ]},
-        "PrivateIpAddress": { "Fn::Select" : [0, { "Fn::GetAtt" : ["DataXface", "SecondaryPrivateIpAddresses" ]}]},
-        "NetworkInterfaceId" : { "Ref" : "DataXface" }
-      },
-      "DependsOn": ["DataEip", "DataXface"]
-    },
-    "MgmtXface" : {
-      "Type" : "AWS::EC2::NetworkInterface",
-      "Properties" : {
-        "SubnetId" : { "Ref" : "VPCSn1" },
-        "Description" :"Interface for control traffic",
-        "GroupSet" : [ {"Ref" : "InstanceSecurityGroup"} ],
-        "Tags": [{"Key": "Name", "Value": {"Fn::Join": ["_", [{ "Ref": "AWS::StackName" }, "Mng_Nic"] ] }}]
-      },
-      "DependsOn": ["VPCSn1", "VPCSn2", "InstanceSecurityGroup"]
-    },
-   "DataXface" : {
-      "Type" : "AWS::EC2::NetworkInterface",
-      "Properties" : {
-        "SubnetId" : { "Ref" : "VPCSn2" },
-        "Description" :"Interface for web traffic",
-        "GroupSet" : [ {"Ref" : "InstanceSecurityGroup"} ],
-        "SecondaryPrivateIpAddressCount" : 1,
-        "Tags": [{"Key": "Name", "Value": {"Fn::Join": ["_", [{ "Ref": "AWS::StackName" }, "Data_Nic"] ] }}]
-      },
-      "DependsOn": ["VPCSn1", "VPCSn2", "InstanceSecurityGroup"]
-    },
-    "Alteon": {
+    "InstanceSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
       "Properties": {
-        "Tags": [{"Key": "Name", "Value": {"Fn::Join": ["_", [{ "Ref": "AWS::StackName" }, "Instance"] ] }}],
-        "ImageId": "ami-020bc27523e9c64a6",
-        "InstanceType": "m3.medium",
-        "NetworkInterfaces" : [{ 
-            "NetworkInterfaceId" : {"Ref" : "MgmtXface"},
-            "DeviceIndex" : "0" 
-        }, { 
-            "NetworkInterfaceId" : {"Ref" : "DataXface"},
-            "DeviceIndex" : "1" 
-        }]
+        "Tags": [{
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "_",
+                [{
+                    "Ref": "AWS::StackName"
+                  },
+                  "SecGrp"
+                ]
+              ]
+            }
+          }
+        ],
+        "GroupDescription": "Alteon Security Group",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "SecurityGroupIngress": [{
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "CidrIp": "0.0.0.0/0"
+          }, {
+            "IpProtocol": "tcp",
+            "FromPort": 2222,
+            "ToPort": 2222,
+            "CidrIp": "0.0.0.0/0"
+          }, {
+            "IpProtocol": "icmp",
+            "FromPort": 1,
+            "ToPort": 1,
+            "CidrIp": {
+              "Ref": "VPCCidrBlock"
+            }
+          }, {
+            "IpProtocol": "udp",
+            "FromPort": 2090,
+            "ToPort": 2090,
+            "CidrIp": {
+              "Ref": "VPCCidrBlock"
+            }
+          }, {
+            "IpProtocol": "tcp",
+            "FromPort": 3121,
+            "ToPort": 3121,
+            "CidrIp": {
+              "Ref": "VPCCidrBlock"
+            }
+          }
+        ]
       },
-      "Type": "AWS::EC2::Instance",
-      "DependsOn": ["MgmtXface", "DataXface"]
+      "DependsOn": "VPC"
+    },
+    "AlteonScaleLaunchConfig" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "DependsOn": ["InstanceSecurityGroup", "RadwareASFunc", "CloudWatchRule", "LambdaLogPermission"],
+      "Properties" : {
+        "ImageId" : "ami-0d2000c6b23d394d4",
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [ "", [
+                "#!/bin/bash\necho \"#!/usr/bin/env python\" >> /var/tmp/config_builder.py\n",
+                "echo \"import fileinput", "\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict = {}\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"SLBPORT\\\"]=\\\"", {
+                  "Ref": "SLBPORT"
+                }, "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"SLBRPORT\\\"]=\\\"", {
+                  "Ref": "SLBRPORT"
+                }, "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"SLBSERVICERPORT\\\"]=\\\"", {
+                  "Ref": "SLBPORT"
+                }, "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"DNSSERVERIP\\\"]=\\\"", {
+                  "Ref": "DNSSERVERIP"
+                }, "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"SLBMETRIC\\\"]=\\\"", {
+                  "Ref": "SLBMETRIC"
+                }, "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"SS_NAME\\\"]=\\\"", {
+                  "Ref": "AWS::StackName"
+                }, "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"REALSS_NAME\\\"]=\\\"", {
+                  "Fn::Join": [".", [{
+                        "Ref": "AWS::StackName"
+                      }, {
+                        "Ref": "Domain"
+                      }
+                    ]]
+                }, "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"GEL_CLS_URL\\\"]=\\\"", {
+                  "Ref": "GELLicesneServerId"
+                }, "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"GEL_ACT_ID\\\"]=\\\"", {
+                  "Ref": "GELActivationID"
+                }, "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"REALLIST\\\"]=\\\"", {
+                  "Ref": "REALLIST"
+                }, "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"GELPRIMLLSURL\\\"]=\\\"", {
+                  "Ref": "GELPRIMLLSURL"
+                }, "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"GEL2NDLLSURL\\\"]=\\\"", {
+                  "Ref": "GEL2NDLLSURL"
+                }, "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"VIPIP\\\"]=\\\"1.1.1.1", 
+                "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"DATAINTIP\\\"]=\\\"1.1.1.2", 
+                "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"DATAINTMASK\\\"]=\\\"", {
+                  "Fn::Select": [1, {
+                      "Fn::Cidr": [{
+                          "Fn::GetAtt": ["VPC", "CidrBlock"]
+                        }, 256, 8]
+                    }
+                  ]
+                }, "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"DPM_REPORT_INTERVAL\\\"]=\\\"15\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"mask_dict = {\\\"8\\\": \\\"255.0.0.0\\\", \\\"9\\\": \\\"255.128.0.0\\\", \\\"10\\\": \\\"255.192.0.0\\\", \\\"11\\\": \\\"255.224.0.0\\\", \\\"12\\\": \\\"255.240.0.0\\\", \\\"13\\\": \\\"255.248.0.0\\\", \\\"14\\\": \\\"255.252.0.0\\\", \\\"15\\\": \\\"255.254.0.0\\\", \\\"16\\\": \\\"255.255.0.0\\\", \\\"17\\\": \\\"255.255.128.0\\\", \\\"18\\\": \\\"255.255.192.0\\\", \\\"19\\\": \\\"255.255.224.0\\\", \\\"20\\\": \\\"255.255.240.0\\\", \\\"21\\\": \\\"255.255.248.0\\\", \\\"22\\\": \\\"255.255.252.0\\\", \\\"23\\\": \\\"255.255.254.0\\\", \\\"24\\\": \\\"255.255.255.0\\\", \\\"25\\\": \\\"255.255.255.128\\\", \\\"26\\\": \\\"255.255.255.192\\\", \\\"27\\\": \\\"255.255.255.224\\\", \\\"28\\\": \\\"255.255.255.240\\\", \\\"29\\\": \\\"255.255.255.248\\\", \\\"30\\\": \\\"255.255.255.252\\\", \\\"31\\\": \\\"255.255.255.254\\\", \\\"32\\\": \\\"255.255.255.255\\\"}",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"DATAINTMASK\\\"]=mask_dict[server_dict[\\\"DATAINTMASK\\\"].split(\\\"/\\\")[1]]", "\">> /var/tmp/config_builder.py\n",
+                "echo \"output_file=open(\\\"/mnt/cf/Alteon/config/aws_converted_config.txt\\\", \\\"a+\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"realcount=0", "\">> /var/tmp/config_builder.py\n",
+                "echo \"def init_vars():", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tglobal realcount", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\trealcount=0", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tfor i in range(1, 10):", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\tif \\\"REAL\\\"+str(i) in server_dict and server_dict[\\\"REAL\\\"+str(i)] != \\\"\\\":", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\trealcount+=1", "\">> /var/tmp/config_builder.py\n",
+                "echo \"def convert_DNS_menu_to_config():", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tif \\\"DNSSERVERIP\\\" in server_dict and len(server_dict[\\\"DNSSERVERIP\\\"]) > 1 and server_dict[\\\"DNSSERVERIP\\\"] != \\\"none\\\":", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"/c/l3/dns\\n\\tprima \\\" + server_dict[\\\"DNSSERVERIP\\\"]+\\\"\\\\n\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"def add_hc_probe_to_config():", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\toutput_file.write(\\\"/c/sys/health\\n\\ton\\n\\tadd 8080\\n\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"def convert_DPM_report_to_config():", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\toutput_file.write(\\\"/cfg/sys/report/trigger\\n\\talways\\n\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\toutput_file.write(\\\"/cfg/sys/report/interval\\n\\t\\\" + server_dict[\\\"DPM_REPORT_INTERVAL\\\"] + \\\"\\\\n\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"def convert_license_server_to_config():", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\toutput_file.write(\\\"/cfg/sys/licsrv\\n\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\toutput_file.write(\\\"\\tena\\\\n\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tif server_dict[\\\"GEL_CLS_URL\\\"] != \\\"\\\":", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"\\tprimary \\\" + \\\"\\\\\\\"\\\" + server_dict[\\\"GEL_CLS_URL\\\"] + \\\"\\\\\\\"\\\\n\\\") ", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tif server_dict[\\\"GELPRIMLLSURL\\\"] != \\\"\\\":", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"\\tprimary \\\" + \\\"\\\\\\\"\\\" + server_dict[\\\"GELPRIMLLSURL\\\"] + \\\"\\\\\\\"\\\\n\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tif server_dict[\\\"GEL2NDLLSURL\\\"] != \\\"\\\":", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"\tsecondry \\\" + \\\"\\\\\\\"\\\" + server_dict[\\\"GEL2NDLLSURL\\\"] + \\\"\\\\\\\"\\\\n\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"def convert_interface_peer_to_config():", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tif \\\"DATAINTIP\\\" in server_dict and server_dict[\\\"DATAINTIP\\\"] != \\\"\\\":", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"/c/l3/if 1\\n\\tena\\n\\taddr \\\"+ server_dict[\\\"DATAINTIP\\\"] + \\\"\\\\n\\\\tmask \\\"+server_dict[\\\"DATAINTMASK\\\"]+\\\"\\\\n\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"def convert_service_to_config():", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tif \\\"VIPIP\\\" in server_dict and len(server_dict[\\\"VIPIP\\\"]) > 1 and server_dict[\\\"VIPIP\\\"] != \\\"\\\":", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"/c/slb/virt 1\\n\\tena\\n\\tvip \\\" + server_dict[\\\"VIPIP\\\"]+\\\"\\\\n\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tif \\\"SLBPORT\\\" in server_dict and len(server_dict[\\\"SLBPORT\\\"]) > 1 and server_dict[\\\"SLBPORT\\\"] != \\\"\\\":", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\tif server_dict[\\\"SLBPORT\\\"] == \\\"443\\\":", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\tserver_dict[\\\"SLBPORT\\\"]=server_dict[\\\"SLBPORT\\\"]+\\\" https\\\"", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\telse:", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\tserver_dict[\\\"SLBPORT\\\"]=server_dict[\\\"SLBPORT\\\"]+\\\" http\\\"", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"/c/slb/virt 1/service \\\" + server_dict[\\\"SLBPORT\\\"]+\\\" \\\\n\\\\tgroup 1\\\\n\\\\trport \\\" + server_dict[\\\"SLBRPORT\\\"]+\\\"\\\\n\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"def convert_reals_to_config():", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tif realcount>0:", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\tfor i in range(1, int(realcount)+1):", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\tif \\\"REAL\\\"+str(i) in server_dict and server_dict[\\\"REAL\\\"+str(i)] != \\\"\\\":", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\t\toutput_file.write(\\\"/c/slb/real \\\" + str(i) + \\\"\\\\n\\\\tena\\\\n\\\\trip \\\"+ server_dict[\\\"REAL\\\" +str(i)]+\\\"\\\\n\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"/c/slb/group 1\\\\n\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\tfor i in range(1, int(realcount)+1):", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\t\toutput_file.write(\\\"\\\\tadd \\\" + str(i) + \\\"\\\\n\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\telse:", "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"/c/slb/adv/fqdnreal \\\" + server_dict[\\\"SS_NAME\\\"] + \\\"\\\\n\\\\tena\\\\n\\\\tgroup 1\\\\n\\\\tfqdn \\\" + server_dict[\\\"REALSS_NAME\\\"] + \\\"\\\\n\\\")", "\">> /var/tmp/config_builder.py\n",
+                "echo \"init_vars()", "\">> /var/tmp/config_builder.py\n",
+                "echo \"convert_interface_peer_to_config()", "\">> /var/tmp/config_builder.py\n",
+                "echo \"convert_DNS_menu_to_config()", "\">> /var/tmp/config_builder.py\n",
+                "echo \"convert_license_server_to_config()", "\">> /var/tmp/config_builder.py\n",
+                "echo \"add_hc_probe_to_config()", "\">> /var/tmp/config_builder.py\n",
+                "echo \"convert_DPM_report_to_config()", "\">> /var/tmp/config_builder.py\n",
+                "echo \"convert_service_to_config()", "\">> /var/tmp/config_builder.py\n",
+                "echo \"convert_reals_to_config()", "\">> /var/tmp/config_builder.py\n",
+                "echo \"azure_function_url ", {"Fn::Join": ["", [
+                  "https://", {"Ref": "LambdaApi"}, 
+                  ".execute-api.", {"Ref": "AWS::Region"},".amazonaws.com",
+                  "/DummyStage",
+                  "/lambda"
+                ]]},
+                "\" >> /disk/Alteon/config/cluster_va_flags"
+              ]
+            ]
+          }
+        },
+        "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
+        "InstanceType" : "m3.medium"
+      }
+    },
+    "AlteonScaleGroup" : {
+      "DependsOn": ["LambdaNATGw", "AlteonScaleLaunchConfig"],
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Properties" : {
+        "VPCZoneIdentifier": [ {"Ref": "VPCSn1"} ],
+        "LaunchConfigurationName" : { "Ref" : "AlteonScaleLaunchConfig" },
+        "MinSize" : {"Ref": "ScaleMinSize"},
+        "MaxSize" : {"Ref": "ScaleMaxSize"},
+        "MetricsCollection": [ {
+              "Granularity": "1Minute",
+              "Metrics": [ "GroupMinSize", "GroupMaxSize" ]
+        } ],
+        "Tags": [ 
+          { "Key": "Name", 
+            "Value": { "Fn::Join": [ "_", [{ "Ref": "AWS::StackName" }, "scale" ] ] } , 
+            "PropagateAtLaunch" : "true" },
+          { "Key": "DevType", "Value": "RadwareAlteon" , "PropagateAtLaunch" : "true" }
+        ]
+      }
+    },
+    "RadwareASRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{
+              "Effect": "Allow",
+              "Principal": { "Service": [ "lambda.amazonaws.com" ]},
+              "Action": [ "sts:AssumeRole" ]
+            }]
+        },
+        "Path": "/",
+        "ManagedPolicyArns": ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"],
+        "Policies": [{
+            "PolicyName": "ApiGatewayLogsPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [{
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:DescribeLogGroups",
+                    "logs:DescribeLogStreams",
+                    "logs:PutLogEvents",
+                    "logs:GetLogEvents",
+                    "logs:FilterLogEvents"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }, {
+            "PolicyName": "RadwareASPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [{
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:DescribeLogGroups",
+                    "logs:DescribeLogStreams",
+                    "logs:PutLogEvents",
+                    "logs:GetLogEvents",
+                    "logs:FilterLogEvents"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "RadwareASPolicy": {
+      "DependsOn": "RadwareASRole",
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": "RadwareASPolicy",
+        "Roles": [{
+            "Ref": "RadwareASRole"
+          }, {"Ref": "ApiGatewayCloudWatchLogsRole"}
+        ],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{
+              "Sid": "VisualEditor0",
+              "Effect": "Allow",
+              "Action": [
+                "ec2:DescribeInstances",
+                "route53:CreateHostedZone",
+                "route53:GetHostedZone",
+                "route53:ListHostedZones",
+                "ec2:DeleteNetworkInterface",
+                "route53:ChangeResourceRecordSets",
+                "logs:CreateLogGroup",
+                "logs:PutLogEvents",
+                "ec2:CreateNetworkInterface",
+                "logs:CreateLogStream",
+                "ec2:DescribeNetworkInterfaces",
+                "ec2:DescribeVpcs",
+                "autoscaling:DescribeAutoScalingGroups",
+                "route53:ListResourceRecordSets",
+                "ec2:AttachNetworkInterface",
+                "ec2:DescribeSubnets"
+              ],
+              "Resource": [
+                "*"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "RadwareASFunc": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": [ "RadwareASRole", "RadwareASPolicy" ],
+      "Properties": {
+        "VpcConfig":{
+          "SubnetIds": [ {"Ref": "LambdaSubnet"}],
+          "SecurityGroupIds": [{"Ref": "InstanceSecurityGroup"}]
+        },
+        "Code": {
+          "S3Bucket": "cftempl",
+          "S3Key": "aws_lambda_autoscale_ddns.zip"
+        },
+        "Role": {
+          "Fn::GetAtt": ["RadwareASRole", "Arn"]
+        },
+        "Timeout": 60,
+        "Handler": "aws_lambda_autoscale_ddns.lambda_handler",
+        "Runtime": "python2.7",
+        "MemorySize": 128,
+        "Environment": {
+          "Variables": {
+            "GELActivationID": {"Ref": "GELActivationID"},
+            "GELThroughput": {"Ref": "GELThroughput"},
+            "GELType": {"Ref": "GELType"},
+            "Domain": {"Ref": "Domain"},
+            "DataSubnetID": {"Ref": "VPCSn2"}
+          }
+        }
+      }
+    },
+    "LambdaNATGw" : {
+      "DependsOn" : "VPCIGWAttachment",
+      "Type" : "AWS::EC2::NatGateway",
+      "Properties" : {
+        "AllocationId" : { "Fn::GetAtt" : ["EIP", "AllocationId"]},
+        "SubnetId" : { "Ref" : "VPCSn1"},
+        "Tags" : [ {"Key" : "Name", "Value" : { "Fn::Join": [ "_", [{ "Ref": "AWS::StackName" }, "natGw"] ] } } ]
+      }
+    },
+    "EIP" : {
+      "Type" : "AWS::EC2::EIP",
+      "Properties" : {
+        "Domain" : "vpc"
+      }
+    },
+    "LambRoute" : {
+      "Type" : "AWS::EC2::Route",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "PrivateVPCRt" },
+        "DestinationCidrBlock" : "0.0.0.0/0",
+        "NatGatewayId" : { "Ref" : "LambdaNATGw" }
+      }
+    },
+    "CloudWatchRule": {
+      "Type": "AWS::Events::Rule",
+      "DependsOn": "RadwareASFunc",
+      "Properties": {
+        "Description": "CloudWatchRule",
+        "EventPattern": {
+          "detail-type": [
+            "EC2 Instance Launch Successful",
+            "EC2 Instance Terminate Successful",
+            "EC2 Instance Launch Unsuccessful",
+            "EC2 Instance Terminate Unsuccessful",
+            "EC2 Instance-launch Lifecycle Action",
+            "EC2 Instance-terminate Lifecycle Action"
+          ],
+          "source": [
+            "aws.autoscaling", "aws.ec2"
+          ]
+        },
+        "State": "ENABLED",
+        "Targets": [{
+            "Arn": { "Fn::GetAtt": ["RadwareASFunc", "Arn"] },
+            "Id": "RadwareASFunc"
+          }
+        ]
+      }
+    },
+    "LambdaApi": {
+      "Type": "AWS::ApiGateway::RestApi",
+      "Properties": {
+        "Name": "Lambda API",
+        "Description": "API used for Lambda requests",
+        "FailOnWarnings": true
+      }
+    },
+    "LambdaApiStage": {
+      "DependsOn": ["ApiGatewayAccount"],
+      "Type": "AWS::ApiGateway::Stage",
+      "Properties": {
+        "DeploymentId": {
+          "Ref": "ApiDeployment"
+        },
+        "MethodSettings": [{
+            "DataTraceEnabled": true,
+            "HttpMethod": "*",
+            "LoggingLevel": "INFO",
+            "ResourcePath": "/*"
+          }
+        ],
+        "RestApiId": {
+          "Ref": "LambdaApi"
+        },
+        "StageName": "LATEST"
+      }
+    },
+    "ApiDeployment": {
+      "Type": "AWS::ApiGateway::Deployment",
+      "DependsOn": "LambdaRequestPOST",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "LambdaApi"
+        },
+        "StageName": "DummyStage"
+      }
+    },
+    "LambdaResource": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "LambdaApi"
+        },
+        "ParentId": { "Fn::GetAtt": ["LambdaApi", "RootResourceId"] },
+        "PathPart": "Lambda"
+      }
+    },
+    "ApiGatewayCloudWatchLogsRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{
+              "Effect": "Allow",
+              "Principal": {
+                "Service": ["apigateway.amazonaws.com"]
+              },
+              "Action": ["sts:AssumeRole"]
+            }
+          ]
+        },
+        "Policies": [{
+            "PolicyName": "ApiGatewayLogsPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [{
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:DescribeLogGroups",
+                    "logs:DescribeLogStreams",
+                    "logs:PutLogEvents",
+                    "logs:GetLogEvents",
+                    "logs:FilterLogEvents"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ApiGatewayAccount": {
+      "Type": "AWS::ApiGateway::Account",
+      "Properties": {
+        "CloudWatchRoleArn": { "Fn::GetAtt": ["ApiGatewayCloudWatchLogsRole", "Arn"] }
+      }
+    },
+    "LambdaAPIPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:invokeFunction",
+        "FunctionName": { "Ref": "RadwareASFunc" },
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": {
+          "Fn::Join": ["", ["arn:aws:execute-api:", { "Ref": "AWS::Region"}, ":", { "Ref": "AWS::AccountId" }, ":", { "Ref": "LambdaApi" }, "/*"]]
+        }
+      }
+    },
+    "LambdaLogPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:invokeFunction",
+        "FunctionName": { "Ref": "RadwareASFunc" },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": { "Fn::GetAtt": [ "CloudWatchRule", "Arn" ] }
+      }
+    },
+    "LambdaRequestPOST": {
+      "DependsOn": "LambdaAPIPermission",
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "AuthorizationType": "NONE",
+        "HttpMethod": "POST",
+        "Integration": {
+          "Type": "AWS",
+          "IntegrationHttpMethod": "POST",
+          "Uri": { "Fn::Join": ["", ["arn:aws:apigateway:", { "Ref": "AWS::Region" }, ":lambda:path/2015-03-31/functions/", {"Fn::GetAtt": ["RadwareASFunc", "Arn"] }, "/invocations"] ] },
+          "IntegrationResponses": [{
+              "StatusCode": 200,
+              "ResponseTemplates": { "application/json": "$input.json('$.body')" }
+          }]
+        },
+        "RequestParameters": { "method.request.querystring.name": false },
+        "ResourceId": { "Ref": "LambdaResource" },
+        "RestApiId": { "Ref": "LambdaApi" },
+        "MethodResponses": [{ "StatusCode": 200 } ]
+      }
     }
   }
 }
