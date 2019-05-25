@@ -426,7 +426,7 @@
         ]
       }
     },
-    "Alteon": {
+    "Alteon1": {
       "Type": "AWS::EC2::Instance",
       "Properties": {
         "ImageId": {
@@ -626,6 +626,233 @@
                 "echo \"convert_reals_to_config()",
                 "\">> /var/tmp/config_builder.py\n",
                 "echo \"convert_service_to_config()",
+                "\">> /var/tmp/config_builder.py\n",
+                "sed -i 's/jsonData\\[.*/jsonData[\"instanceName\"] = '\\\"`curl http://169.254.169.254/latest/meta-data/instance-id -s`\\\"'/g' /disk/Alteon/Azure/scripts/clusterConfigSync.py"
+              ]
+            ]
+          }
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "_",
+                [
+                  {
+                    "Ref": "AWS::StackName"
+                  },
+                  "Alteon"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "Alteon2": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": {
+          "Fn::FindInMap": [
+            "RegionMap",
+            {
+              "Ref": "AWS::Region"
+            },
+            "AlteonAMI"
+          ]
+        },
+        "InstanceType": "m3.medium",
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": "0",
+            "SubnetId": {
+              "Ref": "PublicSubnet"
+            },
+            "GroupSet": [
+              {
+                "Ref": "RadwareSecurityGrp"
+              }
+            ]
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash\necho \"#!/usr/bin/env python\" >> /var/tmp/config_builder.py\n",
+                "echo \"import fileinput",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict = {}\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"SLBPORT\\\"]=\\\"",
+                {
+                  "Ref": "SLBPORT"
+                },
+                "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"SLBRPORT\\\"]=\\\"",
+                {
+                  "Ref": "SLBRPORT"
+                },
+                "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"DNSSERVERIP\\\"]=\\\"",
+                {"Fn::GetAtt": ["PublicSubnetInfo", "CidrBlock"]},
+                "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"SLBMETRIC\\\"]=\\\"",
+                {
+                  "Ref": "SLBMETRIC"
+                },
+                "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"SS_NAME\\\"]=\\\"",
+                {
+                  "Ref": "AWS::StackName"
+                },
+                "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"REALSS_NAME\\\"]=\\\"",
+                {
+                  "Fn::Join": [
+                    ".",
+                    [
+                      {
+                        "Ref": "asgname"
+                      },
+                      {
+                        "Ref": "Domain"
+                      }
+                    ]
+                  ]
+                },
+                "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"GEL_ACT_ID\\\"]=\\\"",
+                {
+                  "Ref": "GELActivationID"
+                },
+                "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"REALLIST\\\"]=\\\"",
+                {
+                  "Ref": "REALLIST"
+                },
+                "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"GELPRIMLLSURL\\\"]=\\\"",
+                {
+                  "Ref": "GELPRIMLLSURL"
+                },
+                "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"GEL2NDLLSURL\\\"]=\\\"",
+                {
+                  "Ref": "GEL2NDLLSURL"
+                },
+                "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"AWSKEY\\\"]=\\\"",
+                {
+                  "Ref": "AccessKey"
+                },
+                "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"AWSSEC\\\"]=\\\"",
+                { "Fn::GetAtt": [ "RadwareAccessKey", "SecretAccessKey" ] },
+                "\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"DPM_REPORT_INTERVAL\\\"]=\\\"15\\\"\">> /var/tmp/config_builder.py\n",
+                "echo \"server_dict[\\\"DNSSERVERIP\\\"]=server_dict[\\\"DNSSERVERIP\\\"].split(\\\"/\\\")[0][:-2]+'.2'",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"output_file=open(\\\"/mnt/cf/Alteon/config/aws_converted_config.txt\\\", \\\"a+\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"def convert_DNS_menu_to_config():",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tif \\\"DNSSERVERIP\\\" in server_dict and len(server_dict[\\\"DNSSERVERIP\\\"]) > 1 and server_dict[\\\"DNSSERVERIP\\\"] != \\\"none\\\":",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"/c/l3/dns\\n\\tprima \\\" + server_dict[\\\"DNSSERVERIP\\\"]+\\\"\\\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"def add_hc_probe_to_config():",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\toutput_file.write(\\\"/c/sys/health\\n\\ton\\n\\tadd 8080\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"def convert_DPM_report_to_config():",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\toutput_file.write(\\\"/cfg/sys/report/trigger\\n\\talways\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\toutput_file.write(\\\"/cfg/sys/report/interval\\n\\t\\\" + server_dict[\\\"DPM_REPORT_INTERVAL\\\"] + \\\"\\\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"def convert_license_server_to_config():",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tif server_dict[\\\"GELPRIMLLSURL\\\"] != \\\"\\\":",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"/cfg/sys/licsrv\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\tif not (\\\"http://\\\" in server_dict[\\\"GELPRIMLLSURL\\\"]) and not (\\\"https://\\\" in server_dict[\\\"GELPRIMLLSURL\\\"]):",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\tserver_dict[\\\"GELPRIMLLSURL\\\"]=\\\"https://radware.flexnetoperations.com/\\\"+server_dict[\\\"GELPRIMLLSURL\\\"]+\\\"/requests\\\"",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"\\tena\\n\\tprimary \\\" + \\\"\\\\\\\"\\\" + server_dict[\\\"GELPRIMLLSURL\\\"] + \\\"\\\\\\\"\\\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tif server_dict[\\\"GEL2NDLLSURL\\\"] != \\\"\\\":",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"\tsecondry \\\" + \\\"\\\\\\\"\\\" + server_dict[\\\"GEL2NDLLSURL\\\"] + \\\"\\\\\\\"\\\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"def convert_service_to_config():",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tif \\\"SLBPORT\\\" in server_dict and len(server_dict[\\\"SLBPORT\\\"]) > 1 and server_dict[\\\"SLBPORT\\\"] != \\\"\\\":",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\tif server_dict[\\\"SLBPORT\\\"] == \\\"443\\\":",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\toutput_file.write(\\\"/c/slb/ssl/sslpol 1\\\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\tif \\\"SLBRPORT\\\" in server_dict and server_dict[\\\"SLBPORT\\\"] == \\\"443\\\":",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\t\toutput_file.write(\\\"/c/slb/ssl/sslpol 1/backend\\\\n\\\\tssl enabled\\\\n\\\\tsni enabled\\\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\toutput_file.write(\\\"/c/slb/virt 1/service \\\" + server_dict[\\\"SLBPORT\\\"]+\\\" https\\\\n\\\\tgroup 1\\\\n\\\\trport \\\" + server_dict[\\\"SLBRPORT\\\"]+\\\"\\\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\toutput_file.write(\\\"/c/slb/virt 1/service \\\" + server_dict[\\\"SLBPORT\\\"]+\\\" https/ssl\\\\n\\\\tsrvrcert WebManagementCert\\\\n\\\\tsslpol 1\\\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\telse:",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\toutput_file.write(\\\"/c/slb/virt 1/service \\\" + server_dict[\\\"SLBPORT\\\"]+\\\" http\\\\n\\\\tgroup 1\\\\n\\\\trport \\\" + server_dict[\\\"SLBRPORT\\\"]+\\\"\\\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"def convert_reals_to_config():",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tif \\\"REALLIST\\\" in server_dict and server_dict[\\\"REALLIST\\\"] != \\\"\\\" and \\\".\\\" in server_dict[\\\"REALLIST\\\"]:",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\trealcount = 0",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\tfor real in server_dict[\\\"REALLIST\\\"].split(\\\",\\\"):",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\treal=real.replace(\\\" \\\", \\\"\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\tif real != \\\"\\\":",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\t\trealcount+=1",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\t\toutput_file.write(\\\"/c/slb/real \\\" + str(realcount) + \\\"\\\\n\\\\tena\\\\n\\\\trip \\\"+ real+\\\"\\\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"/c/slb/group 1\\\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\tfor i in range(1, realcount):",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\t\t\toutput_file.write(\\\"\\\\tadd \\\" + str(i) + \\\"\\\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\telse:",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"/c/slb/adv/fqdnreal \\\" + server_dict[\\\"SS_NAME\\\"] + \\\"\\\\n\\\\tena\\\\n\\\\tgroup 1\\\\n\\\\tfqdn \\\" + server_dict[\\\"REALSS_NAME\\\"] + \\\"\\\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"def convert_aws_key_to_config():",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\tif server_dict[\\\"AWSKEY\\\"] != \\\"\\\":",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"\t\toutput_file.write(\\\"/c/sys/aws\\\\n\\\\taccess\\\" + server_dict[\\\"AWSKEY\\\"] + \\\"\\\\n\\\\tsecret\\\" + server_dict[\\\"AWSSEC\\\"] + \\\"\\\\n\\\")",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"convert_DNS_menu_to_config()",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"convert_license_server_to_config()",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"add_hc_probe_to_config()",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"convert_DPM_report_to_config()",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"convert_reals_to_config()",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"convert_service_to_config()",
+                "\">> /var/tmp/config_builder.py\n",
+                "echo \"convert_aws_key_to_config()",
                 "\">> /var/tmp/config_builder.py\n",
                 "sed -i 's/jsonData\\[.*/jsonData[\"instanceName\"] = '\\\"`curl http://169.254.169.254/latest/meta-data/instance-id -s`\\\"'/g' /disk/Alteon/Azure/scripts/clusterConfigSync.py"
               ]
