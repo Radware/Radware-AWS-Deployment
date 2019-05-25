@@ -601,7 +601,7 @@
         ]
       }
     },
-    "Alteon-1": {
+    "Alteon1": {
       "Type": "AWS::EC2::Instance",
       "Properties": {
         "ImageId": {
@@ -828,7 +828,7 @@
         ]
       }
     },
-    "Alteon-2": {
+    "Alteon2": {
       "Type": "AWS::EC2::Instance",
       "Properties": {
         "ImageId": {
