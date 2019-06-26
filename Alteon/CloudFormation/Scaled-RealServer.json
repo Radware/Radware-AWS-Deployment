@@ -288,7 +288,7 @@
       "Type": "AWS::AutoScaling::LaunchConfiguration",
       "DependsOn": "RealSecurityGrp",
       "Properties": {
-        "ImageId": "ami-05f047de2706dd6d4",
+        "ImageId": "ami-00368a1f8e2396acd",
         "KeyName": {"Ref": "KeyPair"},
         "SecurityGroups": [
           {
