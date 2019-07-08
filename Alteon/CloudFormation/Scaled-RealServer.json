@@ -1,365 +1,380 @@
-{
-  "AWSTemplateFormatVersion": "2010-09-09",
-  "Parameters": {
-    "KeyPair":{
-      "Type": "AWS::EC2::KeyPair::KeyName"
-    },
-    "ScaleMinSize": {
-      "Type": "Number",
-      "Description": "Minimum instances",
-      "Default": 1,
-      "MinValue": "1",
-      "MaxValue": "65535"
-    },
-    "ScaleMaxSize": {
-      "Type": "Number",
-      "Description": "Maximum instances",
-      "Default": 2,
-      "MinValue": "1",
-      "MaxValue": "10"
-    },
-    "ScaleTrigger": {
-      "Type":"Number",
-      "Description": "Precentage of CPU load to trigger AutoScale",
-      "Default": 60,
-      "MinValue": "10",
-      "MaxValue": "100"
-    },
-    "VPCCidrBlock": {
-      "Type": "String",
-      "Description": "The /16 CIDR block for the VPC (Format Example: 10.0.0.0/16)",
-      "MinLength": "9",
-      "MaxLength": "18",
-      "AllowedPattern": "^(\\d{1,3})\\.(\\d{1,3})\\.0\\.0/16$",
-      "ConstraintDescription": "Must be a valid IP CIDR block with a /16",
-      "Default": "10.0.0.0/16"
-    }
-  },
-  "Resources": {
-    "VPC": {
-      "Type": "AWS::EC2::VPC",
-      "Properties": {
-        "Tags": [
-          {
-            "Key": "Name",
-            "Value": {
-              "Fn::Join": [
-                "_",
-                [
-                  {
-                    "Ref": "AWS::StackName"
-                  },
-                  "vpc"
-                ]
-              ]
-            }
-          }
-        ],
-        "CidrBlock": {
-          "Ref": "VPCCidrBlock"
-        },
-        "InstanceTenancy": "default",
-        "EnableDnsSupport": true,
-        "EnableDnsHostnames": true
+{  
+   "AWSTemplateFormatVersion":"2010-09-09",
+   "Parameters":{  
+      "KeyPair":{  
+         "Type":"AWS::EC2::KeyPair::KeyName"
+      },
+      "ScaleMinSize":{  
+         "Type":"Number",
+         "Description":"Minimum instances",
+         "Default":1,
+         "MinValue":"1",
+         "MaxValue":"65535"
+      },
+      "ScaleMaxSize":{  
+         "Type":"Number",
+         "Description":"Maximum instances",
+         "Default":2,
+         "MinValue":"1",
+         "MaxValue":"10"
+      },
+      "ScaleTrigger":{  
+         "Type":"Number",
+         "Description":"Precentage of CPU load to trigger AutoScale",
+         "Default":60,
+         "MinValue":"10",
+         "MaxValue":"100"
+      },
+      "VPCCidrBlock":{  
+         "Type":"String",
+         "Description":"The /16 CIDR block for the VPC (Format Example: 10.0.0.0/16)",
+         "MinLength":"9",
+         "MaxLength":"18",
+         "AllowedPattern":"^(\\d{1,3})\\.(\\d{1,3})\\.0\\.0/16$",
+         "ConstraintDescription":"Must be a valid IP CIDR block with a /16",
+         "Default":"10.0.0.0/16"
       }
-    },
-    "PublicSubnet": {
-      "Type": "AWS::EC2::Subnet",
-      "Properties": {
-        "Tags": [
-          {
-            "Key": "Name",
-            "Value": {
-              "Fn::Join": [
-                "_",
-                [
-                  {
-                    "Ref": "AWS::StackName"
-                  },
-                  "Public_Subnet"
-                ]
-              ]
-            }
-          }
-        ],
-        "CidrBlock": {
-          "Fn::Select": [
-            0,
-            {
-              "Fn::Cidr": [
-                {
-                  "Fn::GetAtt": [
-                    "VPC",
-                    "CidrBlock"
-                  ]
-                },
-                256,
-                8
-              ]
-            }
-          ]
-        },
-        "VpcId": {
-          "Ref": "VPC"
-        },
-        "AvailabilityZone": {
-          "Fn::Select": [
-            "0",
-            {
-              "Fn::GetAZs": ""
-            }
-          ]
-        }
-      },
-      "DependsOn": "VPC"
-    },
-    "PrivateSubnet": {
-      "Type": "AWS::EC2::Subnet",
-      "Properties": {
-        "Tags": [
-          {
-            "Key": "Name",
-            "Value": {
-              "Fn::Join": [
-                "_",
-                [
-                  {
-                    "Ref": "AWS::StackName"
-                  },
-                  "Private_Subnet"
-                ]
-              ]
-            }
-          }
-        ],
-        "CidrBlock": {
-          "Fn::Select": [
-            2,
-            {
-              "Fn::Cidr": [
-                {
-                  "Fn::GetAtt": [
-                    "VPC",
-                    "CidrBlock"
-                  ]
-                },
-                256,
-                8
-              ]
-            }
-          ]
-        },
-        "VpcId": {
-          "Ref": "VPC"
-        },
-        "AvailabilityZone": {
-          "Fn::Select": [
-            "0",
-            {
-              "Fn::GetAZs": ""
-            }
-          ]
-        }
-      },
-      "DependsOn": "VPC"
-    },
-    "PublicRouteTbl": {
-      "Type": "AWS::EC2::RouteTable",
-      "Properties": {
-        "Tags": [
-          {
-            "Key": "Name",
-            "Value": {
-              "Fn::Join": [
-                "_",
-                [
-                  {
-                    "Ref": "AWS::StackName"
-                  },
-                  "Route"
-                ]
-              ]
-            }
-          }
-        ],
-        "VpcId": {
-          "Ref": "VPC"
-        }
-      },
-      "DependsOn": "VPC"
-    },
-    "PublicRouteTblAssoc": {
-      "Type": "AWS::EC2::SubnetRouteTableAssociation",
-      "Properties": {
-        "RouteTableId": {
-          "Ref": "PublicRouteTbl"
-        },
-        "SubnetId": {
-          "Ref": "PublicSubnet"
-        }
-      },
-      "DependsOn": "PublicRouteTbl"
-    },
-    "PublicDefaultRoute": {
-      "Type": "AWS::EC2::Route",
-      "Properties": {
-        "DestinationCidrBlock": "0.0.0.0/0",
-        "RouteTableId": {
-          "Ref": "PublicRouteTbl"
-        },
-        "GatewayId": {
-          "Ref": "PublicInternetGateway"
-        }
-      },
-      "DependsOn": "PublicInternetGatewayAssoc"
-    },
-    "PublicInternetGateway": {
-      "Type": "AWS::EC2::InternetGateway",
-      "Properties": {
-        "Tags": [
-          {
-            "Key": "Name",
-            "Value": {
-              "Fn::Join": [
-                "_",
-                [
-                  {
-                    "Ref": "AWS::StackName"
-                  },
-                  "IGW"
-                ]
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "PublicInternetGatewayAssoc": {
-      "Type": "AWS::EC2::VPCGatewayAttachment",
-      "Properties": {
-        "VpcId": {
-          "Ref": "VPC"
-        },
-        "InternetGatewayId": {
-          "Ref": "PublicInternetGateway"
-        }
-      },
-      "DependsOn": ["PublicInternetGateway", "VPC"]
-    },
-    "RealSecurityGrp": {
-      "Type": "AWS::EC2::SecurityGroup",
-      "DependsOn": "VPC",
-      "Properties": {
-        "Tags": [
-          {
-            "Key": "Name",
-            "Value": {
-              "Fn::Join": [
-                "_",
-                [
-                  {
-                    "Ref": "AWS::StackName"
-                  },
-                  "SecGrp"
-                ]
-              ]
-            }
-          }
-        ],
-        "VpcId": {
-          "Ref": "VPC"
-        },
-        "GroupDescription": "Real Server Security Group",
-        "SecurityGroupIngress": [ {
-            "IpProtocol": "tcp",
-            "FromPort": 80,
-            "ToPort": 80,
-            "CidrIp": "0.0.0.0/0"
-          }, {
-            "IpProtocol": "tcp",
-            "FromPort": 22,
-            "ToPort": 22,
-            "CidrIp": "0.0.0.0/0"
-          }
-        ]
-      }
-    },
-    "RealScaleLaunchConfig": {
-      "Type": "AWS::AutoScaling::LaunchConfiguration",
-      "DependsOn": "RealSecurityGrp",
-      "Properties": {
-        "ImageId": "ami-00368a1f8e2396acd",
-        "KeyName": {"Ref": "KeyPair"},
-        "SecurityGroups": [
-          {
-            "Ref": "RealSecurityGrp"
-          }
-        ],
-        "InstanceType": "t2.micro"
-      }
-    },
-    "RealScalePolicy":{
-      "Type":"AWS::AutoScaling::ScalingPolicy",
-      "Properties":{
-        "AutoScalingGroupName":{
-          "Ref":"RealScaleGroup"
-        },
-        "PolicyType":"TargetTrackingScaling",
-        "TargetTrackingConfiguration":{
-          "PredefinedMetricSpecification":{
-            "PredefinedMetricType":"ASGAverageCPUUtilization"
-          },
-          "TargetValue":{
-            "Ref":"ScaleTrigger"
-          }
-        }
-      }
-    },
-    "RealScaleGroup": {
-      "DependsOn": "RealScaleLaunchConfig",
-      "Type": "AWS::AutoScaling::AutoScalingGroup",
-      "Properties": {
-        "VPCZoneIdentifier": [
-          {
-            "Ref": "PrivateSubnet"
-          }
-        ],
-        "LaunchConfigurationName": {
-          "Ref": "RealScaleLaunchConfig"
-        },
-        "MinSize": {
-          "Ref": "ScaleMinSize"
-        },
-        "MaxSize": {
-          "Ref": "ScaleMaxSize"
-        },
-        "MetricsCollection": [
-          {
-            "Granularity": "1Minute",
-            "Metrics": [
-              "GroupMinSize",
-              "GroupMaxSize"
-            ]
-          }
-        ],
-        "Tags": [
-          {
-            "Key": "Name",
-            "Value": {
-              "Fn::Join": [
-                "_",
-                [
-                  {
-                    "Ref": "AWS::StackName"
-                  },
-                  "scale"
-                ]
-              ]
+   },
+   "Resources":{  
+      "VPC":{  
+         "Type":"AWS::EC2::VPC",
+         "Properties":{  
+            "Tags":[  
+               {  
+                  "Key":"Name",
+                  "Value":{  
+                     "Fn::Join":[  
+                        "_",
+                        [  
+                           {  
+                              "Ref":"AWS::StackName"
+                           },
+                           "vpc"
+                        ]
+                     ]
+                  }
+               }
+            ],
+            "CidrBlock":{  
+               "Ref":"VPCCidrBlock"
             },
-            "PropagateAtLaunch": "true"
-          }
-        ]
+            "InstanceTenancy":"default",
+            "EnableDnsSupport":true,
+            "EnableDnsHostnames":true
+         }
+      },
+      "PublicSubnet":{  
+         "Type":"AWS::EC2::Subnet",
+         "Properties":{  
+            "Tags":[  
+               {  
+                  "Key":"Name",
+                  "Value":{  
+                     "Fn::Join":[  
+                        "_",
+                        [  
+                           {  
+                              "Ref":"AWS::StackName"
+                           },
+                           "Public_Subnet"
+                        ]
+                     ]
+                  }
+               }
+            ],
+            "CidrBlock":{  
+               "Fn::Select":[  
+                  0,
+                  {  
+                     "Fn::Cidr":[  
+                        {  
+                           "Fn::GetAtt":[  
+                              "VPC",
+                              "CidrBlock"
+                           ]
+                        },
+                        256,
+                        8
+                     ]
+                  }
+               ]
+            },
+            "VpcId":{  
+               "Ref":"VPC"
+            },
+            "AvailabilityZone":{  
+               "Fn::Select":[  
+                  "0",
+                  {  
+                     "Fn::GetAZs":""
+                  }
+               ]
+            }
+         },
+         "DependsOn":"VPC"
+      },
+      "PrivateSubnet":{  
+         "Type":"AWS::EC2::Subnet",
+         "Properties":{  
+            "Tags":[  
+               {  
+                  "Key":"Name",
+                  "Value":{  
+                     "Fn::Join":[  
+                        "_",
+                        [  
+                           {  
+                              "Ref":"AWS::StackName"
+                           },
+                           "Private_Subnet"
+                        ]
+                     ]
+                  }
+               }
+            ],
+            "CidrBlock":{  
+               "Fn::Select":[  
+                  2,
+                  {  
+                     "Fn::Cidr":[  
+                        {  
+                           "Fn::GetAtt":[  
+                              "VPC",
+                              "CidrBlock"
+                           ]
+                        },
+                        256,
+                        8
+                     ]
+                  }
+               ]
+            },
+            "VpcId":{  
+               "Ref":"VPC"
+            },
+            "AvailabilityZone":{  
+               "Fn::Select":[  
+                  "0",
+                  {  
+                     "Fn::GetAZs":""
+                  }
+               ]
+            }
+         },
+         "DependsOn":"VPC"
+      },
+      "PublicRouteTbl":{  
+         "Type":"AWS::EC2::RouteTable",
+         "Properties":{  
+            "Tags":[  
+               {  
+                  "Key":"Name",
+                  "Value":{  
+                     "Fn::Join":[  
+                        "_",
+                        [  
+                           {  
+                              "Ref":"AWS::StackName"
+                           },
+                           "Route"
+                        ]
+                     ]
+                  }
+               }
+            ],
+            "VpcId":{  
+               "Ref":"VPC"
+            }
+         },
+         "DependsOn":"VPC"
+      },
+      "PublicRouteTblAssoc":{  
+         "Type":"AWS::EC2::SubnetRouteTableAssociation",
+         "Properties":{  
+            "RouteTableId":{  
+               "Ref":"PublicRouteTbl"
+            },
+            "SubnetId":{  
+               "Ref":"PublicSubnet"
+            }
+         },
+         "DependsOn":"PublicRouteTbl"
+      },
+      "PublicDefaultRoute":{  
+         "Type":"AWS::EC2::Route",
+         "Properties":{  
+            "DestinationCidrBlock":"0.0.0.0/0",
+            "RouteTableId":{  
+               "Ref":"PublicRouteTbl"
+            },
+            "GatewayId":{  
+               "Ref":"PublicInternetGateway"
+            }
+         },
+         "DependsOn":"PublicInternetGatewayAssoc"
+      },
+      "PublicInternetGateway":{  
+         "Type":"AWS::EC2::InternetGateway",
+         "Properties":{  
+            "Tags":[  
+               {  
+                  "Key":"Name",
+                  "Value":{  
+                     "Fn::Join":[  
+                        "_",
+                        [  
+                           {  
+                              "Ref":"AWS::StackName"
+                           },
+                           "IGW"
+                        ]
+                     ]
+                  }
+               }
+            ]
+         }
+      },
+      "PublicInternetGatewayAssoc":{  
+         "Type":"AWS::EC2::VPCGatewayAttachment",
+         "Properties":{  
+            "VpcId":{  
+               "Ref":"VPC"
+            },
+            "InternetGatewayId":{  
+               "Ref":"PublicInternetGateway"
+            }
+         },
+         "DependsOn":[  
+            "PublicInternetGateway",
+            "VPC"
+         ]
+      },
+      "RealSecurityGrp":{  
+         "Type":"AWS::EC2::SecurityGroup",
+         "DependsOn":"VPC",
+         "Properties":{  
+            "Tags":[  
+               {  
+                  "Key":"Name",
+                  "Value":{  
+                     "Fn::Join":[  
+                        "_",
+                        [  
+                           {  
+                              "Ref":"AWS::StackName"
+                           },
+                           "SecGrp"
+                        ]
+                     ]
+                  }
+               }
+            ],
+            "VpcId":{  
+               "Ref":"VPC"
+            },
+            "GroupDescription":"Real Server Security Group",
+            "SecurityGroupIngress":[  
+               {  
+                  "IpProtocol":"tcp",
+                  "FromPort":80,
+                  "ToPort":80,
+                  "CidrIp":"0.0.0.0/0"
+               },
+               {  
+                  "IpProtocol":"tcp",
+                  "FromPort":22,
+                  "ToPort":22,
+                  "CidrIp":"0.0.0.0/0"
+               }
+            ]
+         }
+      },
+      "RealScaleLaunchConfig":{  
+         "Type":"AWS::AutoScaling::LaunchConfiguration",
+         "DependsOn":"RealSecurityGrp",
+         "Properties":{  
+            "ImageId":"ami-00368a1f8e2396acd",
+            "KeyName":{  
+               "Ref":"KeyPair"
+            },
+            "SecurityGroups":[  
+               {  
+                  "Ref":"RealSecurityGrp"
+               }
+            ],
+            "InstanceType":"t2.micro"
+         }
+      },
+      "RealScalePolicy":{  
+         "Type":"AWS::AutoScaling::ScalingPolicy",
+         "Properties":{  
+            "AutoScalingGroupName":{  
+               "Ref":"RealScaleGroup"
+            },
+            "PolicyType":"TargetTrackingScaling",
+            "TargetTrackingConfiguration":{  
+               "PredefinedMetricSpecification":{  
+                  "PredefinedMetricType":"ASGAverageCPUUtilization"
+               },
+               "TargetValue":{  
+                  "Ref":"ScaleTrigger"
+               }
+            }
+         }
+      },
+      "RealScaleGroup":{  
+         "DependsOn":"RealScaleLaunchConfig",
+         "Type":"AWS::AutoScaling::AutoScalingGroup",
+         "Properties":{  
+            "VPCZoneIdentifier":[  
+               {  
+                  "Ref":"PrivateSubnet"
+               }
+            ],
+            "LaunchConfigurationName":{  
+               "Ref":"RealScaleLaunchConfig"
+            },
+            "MinSize":{  
+               "Ref":"ScaleMinSize"
+            },
+            "MaxSize":{  
+               "Ref":"ScaleMaxSize"
+            },
+            "MetricsCollection":[  
+               {  
+                  "Granularity":"1Minute",
+                  "Metrics":[  
+                     "GroupMinSize",
+                     "GroupMaxSize"
+                  ]
+               }
+            ],
+            "Tags":[  
+               {  
+                  "Key":"Name",
+                  "Value":{  
+                     "Fn::Join":[  
+                        "_",
+                        [  
+                           {  
+                              "Ref":"AWS::StackName"
+                           },
+                           "scale"
+                        ]
+                     ]
+                  },
+                  "PropagateAtLaunch":"true"
+               }
+            ]
+         }
       }
-    }
-  }
+   },
+   "Outputs":{  
+      "GroupName":{  
+         "Description":"Real Server Scale Group",
+         "Value":{  
+            "Ref":"RealScaleGroup"
+         }
+      }
+   }
 }
