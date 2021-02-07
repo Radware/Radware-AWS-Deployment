@@ -521,7 +521,7 @@
                 "\\\"\">> /var/tmp/config_builder.py\n",
                 "echo \"server_dict[\\\"AWSKEY\\\"]=\\\"",
                 {
-                  "Ref": "AccessKey"
+                  "Ref": "RadwareAccessKey"
                 },
                 "\\\"\">> /var/tmp/config_builder.py\n",
                 "echo \"server_dict[\\\"AWSSEC\\\"]=\\\"",
@@ -745,7 +745,7 @@
                 "\\\"\">> /var/tmp/config_builder.py\n",
                 "echo \"server_dict[\\\"AWSKEY\\\"]=\\\"",
                 {
-                  "Ref": "AccessKey"
+                  "Ref": "RadwareAccessKey"
                 },
                 "\\\"\">> /var/tmp/config_builder.py\n",
                 "echo \"server_dict[\\\"AWSSEC\\\"]=\\\"",
