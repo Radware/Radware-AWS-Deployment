@@ -85,8 +85,7 @@
         },        
         "VPCCidrBlock": {
           "default": "VPC IP Prefix"
-        },
-
+        }
       }
     }
   },
@@ -182,14 +181,6 @@
         225000
       ]
     },
-    "VPC": {
-      "Type": "AWS::EC2::VPC::Id",
-      "Description": "Please select a VPC"
-    },
-    "PublicSubnet": {
-      "Type": "AWS::EC2::Subnet::Id",
-      "ConstraintDescription" : "Must be an existing subnets with default route pointing to an associated internet gateway and should be residing in the selected Virtual Private Cloud."
-    },
     "VPCCidrBlock": {
       "Type": "String",
       "Description": "The /16 CIDR block for the VPC (Format Example: 10.0.0.0/16)",
@@ -209,7 +200,7 @@
         "NameFilter": { "Ref": "PublicSubnet" }
       }
     },
-        "VPC": {
+    "VPC": {
       "Type": "AWS::EC2::VPC",
       "Properties": {
         "Tags": [
@@ -696,7 +687,7 @@
                 "\\\"\">> /var/tmp/config_builder.py\n",
                 "echo \"server_dict[\\\"AWSKEY\\\"]=\\\"",
                 {
-                  "Ref": "AccessKey"
+                  "Ref": "RadwareAccessKey"
                 },
                 "\\\"\">> /var/tmp/config_builder.py\n",
                 "echo \"server_dict[\\\"AWSSEC\\\"]=\\\"",
@@ -923,7 +914,7 @@
                 "\\\"\">> /var/tmp/config_builder.py\n",
                 "echo \"server_dict[\\\"AWSKEY\\\"]=\\\"",
                 {
-                  "Ref": "AccessKey"
+                  "Ref": "RadwareAccessKey"
                 },
                 "\\\"\">> /var/tmp/config_builder.py\n",
                 "echo \"server_dict[\\\"AWSSEC\\\"]=\\\"",
