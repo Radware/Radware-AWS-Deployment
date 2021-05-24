@@ -1,4 +1,4 @@
-{  
+  
    "AWSTemplateFormatVersion":"2010-09-09",
    "Parameters":{  
       "KeyPair":{  
@@ -35,6 +35,13 @@
          "Default":"10.0.0.0/16"
       }
    },
+  "Mappings": {
+    "RegionMap": {
+      "eu-west-3": { "RealAMI": "ami-0b2e5197b94a76a7b" },
+      "us-west-2": { "RealAMI": "ami-00368a1f8e2396acd" },
+      "eu-west-2": { "RealAMI": "ami-044648ec9d1c4068a" }
+    }
+  },
    "Resources":{  
       "VPC":{  
          "Type":"AWS::EC2::VPC",
@@ -292,16 +299,10 @@
       "RealScaleLaunchConfig":{  
          "Type":"AWS::AutoScaling::LaunchConfiguration",
          "DependsOn":"RealSecurityGrp",
-         "Properties":{  
-            "ImageId":"ami-00368a1f8e2396acd",
-            "KeyName":{  
-               "Ref":"KeyPair"
-            },
-            "SecurityGroups":[  
-               {  
-                  "Ref":"RealSecurityGrp"
-               }
-            ],
+         "Properties": {  
+         	"ImageId": { "Fn::FindInMap": ["RegionMap", { "Ref": "AWS::Region" }, "RealAMI" ] },
+            "KeyName": { "Ref":"KeyPair" },
+            "SecurityGroups":[ { "Ref":"RealSecurityGrp" } ],
             "InstanceType":"t2.micro"
          }
       },
@@ -378,3 +379,4 @@
       }
    }
 }
+
